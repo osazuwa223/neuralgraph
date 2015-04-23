@@ -1,25 +1,25 @@
-\name{neuralgraph-package}
-\alias{neuralgraph-package}
-\alias{neuralgraph}
+\name{signalgraph-package}
+\alias{signalgraph-package}
+\alias{signalgraph}
 \docType{package}
 \title{
-\packageTitle{neuralgraph}
+\packageTitle{signalgraph}
 }
 \description{
-\packageDescription{neuralgraph}
+\packageDescription{signalgraph}
 }
 \details{
 
 The DESCRIPTION file:
-\packageDESCRIPTION{neuralgraph}
-\packageIndices{neuralgraph}
+\packageDESCRIPTION{signalgraph}
+\packageIndices{signalgraph}
 ~~ An overview of how to use the package, including the most important ~~
 ~~ functions ~~
 }
 \author{
-\packageAuthor{neuralgraph}
+\packageAuthor{signalgraph}
 
-Maintainer: \packageMaintainer{neuralgraph}
+Maintainer: \packageMaintainer{signalgraph}
 }
 \references{
 ~~ Literature or other references for background information ~~
