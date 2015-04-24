@@ -12,18 +12,92 @@ output.table <- input.table %>%
 {(function(x) x / (1 + x))(.)} %>%
   data.frame %>%
   `names<-`("4")
-g <- fitNetwork(g, input.table, output.table, 
-                activation = logistic,
-                activation.prime = logistic.prime,
-                min.max.constraints = c(min = -Inf, max = Inf),
-                verbose=T)
-test_that("initializeGraph names the edges.", {})
+
+test_that("initializeGraph returns a graph structure ready for fitting.", {
+ g <- initializeGraph(g, input.table, output.table, 
+                  activation = logistic,
+                  activation.prime = logistic.prime,
+                  min.max.constraints = c(min = -Inf, max = Inf))
+ # Fails if you initialize twice
+ expect_error(
+   initializeGraph(g, input.table, output.table,
+                       activation = logistic, 
+                       activation.prime = logistic.prime,
+                       min.max.constraints = c(min = -Inf, max = Inf)),
+   "This graph structure seems to have already been updated."
+   )
+ # Need weight, name, and updated edge attributes.
+ list.edge.attributes(g) %>%
+   identical(c("weight", "name", "updated")) %>% 
+   expect_true 
+ # updated attribute should all be false
+ expect_true(!E(g)$updated %>% all)
+ # Need the following vertex attributes 
+ list.vertex.attributes(g) %>%
+   identical(c("name", "type", "input.signal", "f.prime.input",
+   "output.signal", "observed", "updated")) %>%
+   expect_true
+ # The input.signal, f.prime.input, output.signal, and observed values should
+ # should be numerics.
+ lapply(
+   list(
+     V(g)[1]$input.signal[[1]],
+     V(g)[1]$f.prime.input[[1]],
+     V(g)[1]$output.signal[[1]],
+     V(g)[type == "output"]$observed[[1]]
+   ), 
+   function(item){
+     (length(item) > 0) %>%
+       expect_true
+   }
+  )
+ # Graph attributes should be activation, activation.prime, min.max.constraints
+ list.graph.attributes(g) %>%
+   identical(c("activation", "activation.prime", "min.max.constraints", "n")) %>%
+   expect_true
+})
+
 test_that("fitNetwork returns a graph structure", {
+  g <- fitNetwork(g, input.table, output.table, 
+                  activation = logistic,
+                  activation.prime = logistic.prime,
+                  min.max.constraints = c(min = -Inf, max = Inf),
+                  verbose=T)
   expect_true(class(g) == "igraph")
 })
 
+test_that("in an initialized model where the predicted and observed output 
+are exactly the same, the model results of fitting the model should 
+be a graph with 0 error and unchanged weights.", {
+  g <- generateMultiConnectedDAG(8)
+  inputs <- V(g)[igraph::degree(g, mode="in") == 0]
+  outputs <- V(g)[igraph::degree(g, mode="out") == 0]
+  input.val.list <- lapply(inputs, function(input) runif(1000))
+  input.df <- data.frame(input.val.list)
+  names(input.df) <- inputs
+  output.list <- lapply(outputs, function(output) rep(NA, 1000))
+  output.df <- data.frame(output.list)
+  names(output.df) <- outputs
+  g <- initializeGraph(g, input.table = input.df, 
+                       output.table = output.df)
+  #Set the observed values exactly to the predicted values
+  V(g)[type == "output"]$observed <- V(g)[type == "output"]$output.signal
+  output.df[, paste(outputs)] <- unlist(V(g)[type == "output"]$observed)
+  # After fitting I expect no changes
+  g2 <- fitInitializedNetwork(g, .05, 3)
+  # The difference between predicted and observed should still be 0
+  sum((unlist(V(g)[type == "output"]$observed) - 
+         unlist(V(g)[type == "output"]$output.signal))^2) %>%
+    expect_equal(0)
+  # The weights should be unchanged
+  E(g2)$weight %>% identical(E(g)$weight) %>% expect_true  
+})
+
+
+
 test_that("a graph imported from a model from a neural network package package should 
-          provide the same prediction.", {})
+          provide the same prediction.", {
+          })
 
 "model should perform a reasonable prediction on a toy problem."
 
@@ -43,7 +117,11 @@ multi-layer perceptron."
 
 "works when no derivitive of activation function is provided."
 
-
-
 test_that("fitNetwork returns a MSPR on the infert dataset that is close to 
           that of a network of the same shape fit with the neuralnet package", {})
+
+"fitting of the model works like it would in lm or glm"
+
+"fitted and predict works like they would work in lm or glm (see getDF and newDataUpdate)"
+
+"fetching of residuals work like they would in lm or glm"

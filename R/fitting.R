@@ -76,7 +76,11 @@ resetUpdateAttributes <- function(g){
 }
 
 #' Add Nodes Corresponding to Biases
+#' 
+#' If intercepts (biases) already exist in the graph, no intercepts are added.
 addInterceptNodes <- function(g){
+  # If intercepts already exist, do nothing
+  if("intercept" %in% V(g)$type) return(g)
   non.input.nodes <- V(g)[inDegree(g, V(g)) != 0]
   g.new <- g
   for(v in non.input.nodes){
@@ -117,11 +121,19 @@ initializeVertexVectors <- function(g, v.index){
 #' @return A graph with all the attributes needed to fit the neural network model.
 initializeGraph <- function(g, input.table, output.table, activation=logistic, 
                             activation.prime=logistic.prime, min.max.constraints=NULL){
+  if(length(
+    intersect(list.graph.attributes(g), 
+                      c("activation", "activation.prime", 
+                              "min.max.constraints", "n"))
+            ) > 1 ){
+    stop("This graph structure seems to have already been updated.")
+  }
   g$activation <- activation
   g$activation.prime <- activation.prime
   if(!is.null(min.max.constraints)) names(min.max.constraints) <- c("min", "max")
   g$min.max.constraints <- min.max.constraints 
   g$n <- nrow(output.table)
+  if(!is.null(V(g)$type)) stop("Graph vertices already have a type attribute.")
   V(g)$type <- "middle"
   V(g)[names(input.table)]$type <- "input"
   V(g)[names(output.table)]$type <- "output"
@@ -156,9 +168,9 @@ getLinearCombination <- function(weights, model.mat) as.numeric(model.mat %*% we
 #' @param e edge index
 #' @return a vector corresponding to the Derivative
 doChainRule <- function(g, v, e){
-  e.src <- getEdgeVertex(g, e, "src")
+  e.src <- getEdgeVertex(g, e, "from")
   if(v == e.src) stop("The chainrule has gone back too far, v: ", v, " e: ", e)
-  e.trg <- getEdgeVertex(g, e, "trg")
+  e.trg <- getEdgeVertex(g, e, "to")
   if(!(e.trg %in%  v || isBDownstreamOfA(g, a = e.trg, b = v))){
     stop("You've attempted to find the gradient of a node's output
          w.r.t an edge weight that that does not affect that output. v: ", v, " e: ", e)  
@@ -166,8 +178,8 @@ doChainRule <- function(g, v, e){
   f.prime.input <- unlist(V(g)[v]$f.prime.input)
   #Next check that the edge is not an incoming edge to v
   if(e.trg == v){
-    e.src <- getEdgeVertex(g, e, "src")
-    output <- unlist(e.src$output.signal) * f.prime.input
+    e.src <- getEdgeVertex(g, e, "from")
+    output <- unlist(V(g)[e.src]$output.signal) * f.prime.input
   }else{
     connected.nodes <- V(g)[getConnectingNodes(g, e.trg, v)]
     varying.parents <- V(g)[intersect(iparents(g, v), connected.nodes)]
@@ -331,6 +343,9 @@ fitInitializedNetwork <- function(g, epsilon, min.iter, verbose=F){
   g
 }
 
+#' Fit a Neural Network on a Graph Structure
+#' 
+#' @export
 fitNetwork <- function(g, input.table, output.table, epsilon=.05, min.iter=3, 
                        activation=logistic, activation.prime=logistic.prime, 
                        min.max.constraints = NULL, verbose=F){
@@ -341,74 +356,19 @@ fitNetwork <- function(g, input.table, output.table, epsilon=.05, min.iter=3,
   g <- fitInitializedNetwork(g, epsilon, min.iter, verbose)
 }
 
-simFarceNet <- function(n){
-  #Simulates a network where the output signal and the observed output
-  #is exactly the same.  
-  #A random network a simulated, random inputs and weights are given,
-  #the values are propagated forward using a logistic activation function.
-  #This is for testing purposes.
-  
-  g <- generateMultiConnectedDAG(n)
-  inputs <- V(g)[igraph::degree(g, mode="in") == 0]
-  outputs <- V(g)[igraph::degree(g, mode="out") == 0]
-  input.val.list <- lapply(inputs, function(input) runif(1000))
-  input.df <- data.frame(input.val.list)
-  names(input.df) <- inputs
-  output.list <- lapply(outputs, function(output) rep(NA, 1000))
-  output.df <- data.frame(output.list)
-  names(output.df) <- outputs
-  g <- initializeGraph(g, input.table = input.df, 
-                       output.table = output.df)
-  V(g)[type == "output"]$observed <- V(g)[type == "output"]$output.signal
-  output.df[, paste(outputs)] <- unlist(V(g)[type == "output"]$observed)
-  g <- fitInitializedNetwork(g, .05, 3)
-  g
-}
-
-ff.to.bn <- function(g){
-  sub <- induced.subgraph(g, V(g)[type != "intercept"])
-  igraph.to.bn(sub)
-}
-
+#' Add new data to fitted model in order to do prediction
 newDataUpdate <- function(g, input.table){
-  require(igraph)
   for(input in names(input.table)){
     V(g)[input]$output.signal <- list(input.table[, input])
   }
   g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
 }
 
+#' Get a data frame of output signals   
 getDF <- function(g){
   output <- do.call(data.frame, V(g)[type != "intercept"]$output.signal)
   names(output) <- paste(V(g)[type != "intercept"])
   output
-}
-
-getCauses <- function(g, v){  
-  if(is.null(V(g)$intervention)) stop("Interventions have not been set")
-  if(V(g)[v]$intervention) return(V(g)[0])
-  V(g)[nei(v, mode="in")]
-}
-
-setValuesFunc <- function(val){
-  function(g, v){
-    if(V(g)[v]$intervention){
-      V(g)[v]$output.signal <- list(rep(val, g$n))
-    }else{
-      g <- calculateVals(g, v)
-    }
-    g
-  }
-}
-
-fixNodes <- function(g, v.set, val){
-  V(g)$intervention <- FALSE
-  V(g)[v.set]$intervention <- TRUE
-  input.intervention <- as.logical((V(g)$type == "input") * V(g)$intervention) 
-  V(g)[input.intervention]$output.signal <- list(rep(val, g$n))
-  setValCallback <- setValuesFunc(val)
-  g <- updateVertices(g, getDeterminers = getCauses, callback = setValCallback)
-  g
 }
 
 getDependentEdges <- function(g, e){
