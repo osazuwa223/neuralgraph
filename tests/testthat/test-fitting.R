@@ -1,20 +1,20 @@
 context("Neural network implementation")
-set.seed(21)
-g <- generateMultiConnectedDAG(5)
-inputs <- c("2", "3")
-outputs <- c("4")
-input.table <- as.data.frame(matrix(runif(1000 * 2), ncol = 2,
-                                    dimnames = list(NULL, inputs)))
-names(input.table) <- inputs
-output.table <- input.table %>%
-  as.matrix %>% 
-{. %*% matrix(c(1.7, .8), ncol = 1)} %>%
-{(function(x) x / (1 + x))(.)} %>%
-  data.frame %>%
-  `names<-`("4")
 
 test_that("initializeGraph returns a graph structure ready for fitting.", {
- g <- initializeGraph(g, input.table, output.table, 
+  set.seed(21)
+  g <- generateMultiConnectedDAG(5)
+  inputs <- c("2", "3")
+  outputs <- c("4")
+  input.table <- as.data.frame(matrix(runif(1000 * 2), ncol = 2,
+                                      dimnames = list(NULL, inputs)))
+  names(input.table) <- inputs
+  output.table <- input.table %>%
+    as.matrix %>% 
+    {. %*% matrix(c(1.7, .8), ncol = 1)} %>%
+    {(function(x) x / (1 + x))(.)} %>%
+    data.frame %>%
+    `names<-`("4")
+  g <- initializeGraph(g, input.table, output.table, 
                   activation = logistic,
                   activation.prime = logistic.prime,
                   min.max.constraints = c(min = -Inf, max = Inf))
@@ -58,6 +58,19 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
 })
 
 test_that("fitNetwork returns a graph structure", {
+  set.seed(21)
+  g <- generateMultiConnectedDAG(5)
+  inputs <- c("2", "3")
+  outputs <- c("4")
+  input.table <- as.data.frame(matrix(runif(1000 * 2), ncol = 2,
+                                      dimnames = list(NULL, inputs)))
+  names(input.table) <- inputs
+  output.table <- input.table %>%
+    as.matrix %>% 
+    {. %*% matrix(c(1.7, .8), ncol = 1)} %>%
+    {(function(x) x / (1 + x))(.)} %>%
+    data.frame %>%
+    `names<-`("4")
   g <- fitNetwork(g, input.table, output.table, 
                   activation = logistic,
                   activation.prime = logistic.prime,
@@ -93,35 +106,153 @@ be a graph with 0 error and unchanged weights.", {
   E(g2)$weight %>% identical(E(g)$weight) %>% expect_true  
 })
 
+test_that("prediction should never produce NA or other invalid values, it should rather error out", {
+  g <- generateMultiConnectedDAG(8)
+  inputs <- V(g)[igraph::degree(g, mode="in") == 0]
+  outputs <- V(g)[igraph::degree(g, mode="out") == 0]
+  input.val.list <- lapply(inputs, function(input) runif(1000))
+  input.df <- data.frame(input.val.list)
+  names(input.df) <- inputs
+  output.list <- lapply(outputs, function(output) rep(NA, 1000))
+  output.df <- data.frame(output.list)
+  names(output.df) <- outputs
+  g <- initializeGraph(g, input.table = input.df, 
+                       output.table = output.df)
+  g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
+  #Every thing that is not an input or an intercept should work.
+  V(g)[!(type %in% c("input", "intercept"))]$output.signal %>% lapply(isValid) %>% lapply(expect_true)
+})
 
+test_that("after a pass at fitting, all edges have been traversed.", {
+  system <- list(c(1, 0), c(1, 0)) %>%
+    expand.grid %>%
+    `names<-`(c("I1", "I2")) %>%
+    mutate(AND = I1 * I2)
+  g1 <- mlpgraph(c("I1", "I2"), c(3, 2), c("AND")) %>% #Use a 2 layer MLP
+    initializeGraph(input.table = system[, c("I1", "I2")], 
+                    output.table = system[, "AND", drop = F])
+  g2 <- updateEdges(g1, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
+  # We know an edge is traversed when fitWeightsForEdgeTarget sets 'updated' attribute to 'TRUE'.
+  c(!E(g1)$updated,  # All edges should initially be unupdated
+    E(g2)$updated) %>% # All edges should finally be updated
+    all %>%
+    expect_true
+})
 
-test_that("a graph imported from a model from a neural network package package should 
-          provide the same prediction.", {
-          })
+#Check out functionals deriv, 
+test_that("a gradient descent step reduces loss with numeric derivatives.", {
+  system <- list(c(1, 0), c(1, 0)) %>%
+    expand.grid %>%
+    `names<-`(c("I1", "I2")) %>%
+    mutate(AND = I1 * I2)
+  g <- matrix(c("I1", "AND",
+                "I2", "AND"), byrow = T, ncol = 2) %>%
+    graph.data.frame %>%
+    initializeGraph(input.table = system[, c("I1", "I2")], 
+                    output.table = system[, "AND", drop = F]) 
+})
 
-"model should perform a reasonable prediction on a toy problem."
+test_that("a gradient descent step reduces loss in a MLP case.", {
+  system <- list(c(1, 0), c(1, 0)) %>%
+    expand.grid %>%
+    `names<-`(c("I1", "I2")) %>%
+    mutate(AND = I1 * I2)
+  g <- mlpgraph(c("I1", "I2"), c(3, 2), c("AND")) %>% #Use a 2 layer MLP
+    initializeGraph(input.table = system[, c("I1", "I2")], 
+                    output.table = system[, "AND", drop = F])
+  v <- V(g)["AND"]
+  #loss <- getLossFunction(g, v)
+  # getPrediction is the problem
+  loss <- function(weights){
+    output_vertex <- V(g)[type=="output"]
+    #prediction <- getPrediction(g, v, weights)
+    observed <- unlist(output_vertex$observed)
+    .5 * sum( (observed - prediction) ^ 2)
+  }
+  gradient <- getGradientFunction(g, v)
+  weights_initial <- E(g)[to(v)]$weight
+  weights_optimized <- optim(weights_initial, fn = loss, gr = gradient, method="BFGS")$par
+  # ls  
+  expect_true(loss(weights_optimized) < loss(weights_initial))
+})
 
-"a MLP structure should have the same error rate as a model with the same structure
-from a neural network package."
+test_that("an update to an edge should result in a new edge weight (at least in early iterations of fitting", {
+  stop()
+})
 
-"for a simple muli-node input, single-node output graph, calculateVals should reproduce
-simple arithmetic."
+test_that("model should perform a reasonable MLP prediction on a toy problem with single output.", {
+  require(dplyr)
+  #g <- mlpgraph(c("I1", "I2"), c(3, 2, 4), c("AND", "OR", "NOR"))
+  g <- mlpgraph(c("I1", "I2"), c(3, 2), c("AND"))
+  #igraphviz(g)
+  system <- list(c(1, 0), c(1, 0)) %>%
+    expand.grid %>%
+    `names<-`(c("I1", "I2")) %>%
+    mutate(AND = I1 * I2)
+    #mutate(AND = I1 * I2, OR = (I1 + I2 > 0) * 1, NOR = (I1 + I2 == 0) * 1)
+  fit <- fitNetwork(g, input.table = system[, c("I1", "I2")], 
+                    output.table = system[, "AND", drop = F], 
+                    epsilon = 2, verbose = T)
+              matrix(ncol = 2, byrow = T) %>%
+              graph.edgelist
+            list(c(1, 0), c(1, 0)) %>%
+              expand.grid %>%
+              `names<-`(c("A", "B")) %>%
+              mutate(AND = A * B, OR = (A + B > 0) * 1, NOR = (A + B == 0) * 1)
+            
+            inputs <- V(g)[igraph::degree(g, mode="in") == 0]
+            outputs <- V(g)[igraph::degree(g, mode="out") == 0]
+            input.df <- lapply(c("A", "B"), function(input) c(1,0)) %>%
+              expand.grid %>%
+              `names<-`(V(g)[inputs]$name) %>% 
+              mutate(AND = ifelse())
+            
+            
+            input.df <- data.frame(input.val.list)
+            names(input.df) <- inputs
+            output.list <- lapply(outputs, function(output) rep(NA, 1000))
+            output.df <- data.frame(output.list)
+            names(output.df) <- outputs
+            g <- initializeGraph(g, input.table = input.df, 
+                                 output.table = output.df)
+            })
 
-"no unexpected input to resetUpdateAttributes, specifically one where all nodes or
-edges are updated == TRUE or all are FALSE"
+test_that("for a simple muli-node input, single-node output graph, calculateVals should reproduce
+simple arithmetic.", {
+  stop()
+})
 
-"adding one bias node per non-input node should have same parameter count as a comparable
-multi-layer perceptron."
+test_that("no unexpected input to resetUpdateAttributes, specifically one where all nodes or
+edges are updated == TRUE or all are FALSE", {
+  stop()
+})
 
-"values and updated status for input nodes and bias nodes should never change"
+test_that("adding one bias node per non-input node should have same parameter count as a comparable
+multi-layer perceptron.", {
+  stop()
+})
 
-"works when no derivitive of activation function is provided."
+test_that("values and updated status for input nodes and bias nodes should never change", {
+  stop()
+})
+
+test_that("works when no derivitive of activation function is provided.", {
+  stop()
+})
 
 test_that("fitNetwork returns a MSPR on the infert dataset that is close to 
-          that of a network of the same shape fit with the neuralnet package", {})
+          that of a network of the same shape fit with the neuralnet package", {
+  stop()
+})
 
-"fitting of the model works like it would in lm or glm"
+test_that("fitting of the model works like it would in lm or glm", {
+  stop()
+})
 
-"fitted and predict works like they would work in lm or glm (see getDF and newDataUpdate)"
+test_that("fitted and predict works like they would work in lm or glm (see getDF and newDataUpdate)", {
+  stop()
+})
 
-"fetching of residuals work like they would in lm or glm"
+test_that("fetching of residuals work like they would in lm or glm", {
+  stop()
+})

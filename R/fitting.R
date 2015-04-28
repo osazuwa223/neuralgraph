@@ -30,6 +30,17 @@ formatVertexList <- function(output){
   output
 }
 
+#' Pull fitted values from a graph into a data frame
+#' 
+#' @param g A fitted graph
+#' @return a data frame containing fitted values
+#' @export
+getFitted <- function(g){
+  vertices_of_interest <- V(g)[!(type %in% "intercept")]
+  vertices_of_interest$output.signal %>% #Pull everything but the intercepts
+    {do.call("rbind", .)} %>% t %>% as.data.frame %>% `names<-`(vertices_of_interest$name) # Put into a data frme
+}
+
 #' Summarize the values of an igraph neural net model 
 examineFFGraph <- function(g, formatVertexAttr = formatVertexList){
   examineGraph(g, formatVertexAttr=formatVertexAttr)
@@ -40,6 +51,18 @@ examineFFGraph <- function(g, formatVertexAttr = formatVertexList){
 logistic <- function(z) 1 / (1 + exp(-z))
 #' @rdname logistic
 logistic.prime <- function(z) exp(-z)/(1+exp(-z))^2
+
+#' Checks the validity of a numeric vertex attribute
+#' 
+#' @example
+#' checkNumericError(unlist(V(g)[type == "output"]$observed))
+isValid <- function(item){
+  valid <- TRUE
+  if(any(is.na(item))) valid <- FALSE
+  if(any(is.infinite(item))) valid <- FALSE
+  if(length(item) == 0) valid <- FALSE
+  valid
+}
 
 #' Calculate the Values of Vertices in Neural Network Model
 #' 
@@ -60,6 +83,7 @@ calculateVals <- function(g, v.index){
   V(g)[v]$f.prime.input <- list(g$activation.prime(linear.combination))
   output <- g$activation(linear.combination)
   V(g)[v]$output.signal <- list(output)
+  V(g)[v]$output.signal %>% unlist %>% {!isValid(.)} %>% `if`(stop("Error in output for vertex ", v.index))
   g
 }
 
@@ -84,31 +108,51 @@ addInterceptNodes <- function(g){
   non.input.nodes <- V(g)[inDegree(g, V(g)) != 0]
   g.new <- g
   for(v in non.input.nodes){
-    v.name <- V(g)[v]
-    intercept.name <- paste("int", v.name, sep=".")
-    g.new <- g.new + intercept.name
-    g.new <- initializeVertexVectors(g.new, intercept.name)
-    V(g.new)[intercept.name]$type <- "intercept"
-    V(g.new)[intercept.name]$output.signal <- list(rep(1, g$n))
-    g.new <- g.new + edge(intercept.name, v.name)
+    v <- as.numeric(v)
+    intercept.name <- paste("int", v, sep=".")
+    g.new <- g.new + intercept.name #Add the intercept to the graph
+    g.new <- initializeVertexVectors(g.new, intercept.name) #Having added the intercept, give it the correct properties
+    V(g.new)[intercept.name]$type <- "intercept" #Label the intercept as 'intercept'
+    V(g.new)[intercept.name]$output.signal <- list(rep(1, g$n)) #Give the value of 1
+    g.new <- g.new + igraph::edge(intercept.name, V(g)[v]$name)
   }
   g.new
 }
 
-#' Initialize Numerically-Valued Vertex Attributes
-#' For a given vertex, vertex attibutes that take a vector as a value are 
-#' initialized with a placeholder.
+#' Initialize numerically-valued vertex attributes
+#' 
+#' For a given vertex, vertex attibutes that take a numeric vector as a value are 
+#' initialized with a placeholder. Specifically, the vertex attributes are;
+#' \itemize{
+#'  \item{input.signal}{The vector of linear combination of values from the parent nodes}
+#'  \item{output.signal}{The output of the activation function applied to input.signal}
+#'  \item{f.prime.input}{The derivative of the activation function applied to the input.signal}
+#'  \item{observed}{Observed values in the data.  Not present for hidden and input nodes.}
+#'  }
+#' All of these are initialized with NA values
+#' 
 #' @param g graph model
 #' @param v.index vertex index
-#' @return graph object with placeholders for numerically-valued vertex attributes
+#' @return and igraph object where the above attributes are initialized to the value \code{list(rep(NA, g$n))}
 initializeVertexVectors <- function(g, v.index){
-  na.placeholder <- list(rep(NA, g$n)) # A list containing one vector of NAs used to initialize vertex attributes that are vectors
+  na.placeholder <- list(rep(NA, g$n)) 
   V(g)[v.index]$input.signal <- na.placeholder
   V(g)[v.index]$f.prime.input <- na.placeholder
   V(g)[v.index]$output.signal <- na.placeholder
   V(g)[v.index]$observed <- na.placeholder
   g
 }
+
+#' Simulating starting weights
+initializeWeights <- function(g){  
+  if(any(is.infinite(g$min.max.constraints)) || is.null(g$min.max.contraints)) {
+    E(g)$weight <- rnorm(ecount(g), sd = 3)
+  } else {
+    E(g)$weight <- runif(ecount(g), min = g$min.max.constraints[1], max = g$min.max.constraints[2])
+  }
+  g
+}
+
 
 #' Primes a Graph Object for Fitting a Neural Network Model
 #' @param g igraph object with vertices corresponding to input nodes, output nodes, and 
@@ -118,7 +162,10 @@ initializeVertexVectors <- function(g, v.index){
 #' @param activation function, the desired activation function
 #' @param activation.prime, the Derivative of the desired activation function
 #' @param min.max.constraints (optional) numeric containing the limiting range of the estimates
+#' 
 #' @return A graph with all the attributes needed to fit the neural network model.
+#' 
+#' @export
 initializeGraph <- function(g, input.table, output.table, activation=logistic, 
                             activation.prime=logistic.prime, min.max.constraints=NULL){
   if(length(
@@ -152,12 +199,14 @@ initializeGraph <- function(g, input.table, output.table, activation=logistic,
   #Reinitialize names
   g <- nameEdges(g)
   #initialize weights
-  E(g)$weight <- runif(ecount(g))
+  g <- initializeWeights(g)
   ##V(g)$intercept <- runif(vcount(g))
   ##V(g)[type == "input"]$intercept <- NA
   g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
   g
 }
+
+
 
 #' A Simple Matrix Multiplication to Calculate Linear Inputs
 getLinearCombination <- function(weights, model.mat) as.numeric(model.mat %*% weights)
@@ -232,20 +281,20 @@ plotPath <- function(g, src, trg){
 # v2 <- sample(getDownstreamNodes(g, v1), 1)
 # v1;v2
 # plotPath(g, v1, v2)
-
 getPrediction <- function(g, v, weights){
   #message("Prediction function call: candidate weights being propagated forward.")
   prediction.graph <- g
   E(prediction.graph)[to(v)]$weight <- weights
   prediction.graph <- updateVertices(prediction.graph, getDeterminers = iparents, callback = calculateVals)
   prediction <- unlist(V(prediction.graph)[type == "output"]$output.signal)
+  if(!isValid(prediction)) stop("An error occured in predicting vertex ", v)
   prediction
 }
 
 getLoss <- function(g){
   observed <- unlist(V(g)[type=="output"]$observed)
   prediction <- unlist(V(g)[type=="output"]$output.signal)
-  sum(.5 * (observed - prediction) ^ 2)
+  .5 * sum( (observed - prediction) ^ 2)
 }
 
 getLossFunction <- function(g, v){
@@ -254,7 +303,7 @@ getLossFunction <- function(g, v){
   lossFunction <- function(weights){
     prediction <- getPrediction(g, v, weights)
     observed <- unlist(V(g)[type=="output"]$observed)
-    sum(.5 * (observed - prediction) ^ 2)
+    .5 * sum( (observed - prediction) ^ 2)
   }
   lossFunction
 } 
@@ -318,25 +367,33 @@ fitWeightsForNode <- function(g, v){
 }
 
 fitWeightsForEdgeTarget <- function(g, e){
+  old_weight <- E(g)[e]$weight
   edge.target <- get.edgelist(g)[e, 2]
+  message("Fitting for edge ", E(g)[e]$name)
   g <- fitWeightsForNode(g, edge.target)
+  new_weight <- E(g)[e]$weight
+  if(new_weight == old_weight) message(E(g)[e]$name, ': Old weight = ', old_weight, ', New Weight = ', new_weight)
   E(g)[e]$updated <- TRUE
   g
 }
 
-fitInitializedNetwork <- function(g, epsilon, min.iter, verbose=F){
-  e <- getLoss(g)
+fitInitializedNetwork <- function(g, epsilon, max.iter, verbose=F){
+  e <- 2 * getLoss(g)  / g$n  #Multiply * 2 because of .5 coefficient in loss function. Devide by n to get mean error loss
   i <- 1
   test <- TRUE
-  while(test || i <= min.iter){
+  while(test){
+    print(i)
+    g <- resetUpdateAttributes(g)
     if(verbose){
       g <- updateEdges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
     }else{
       g <- suppressMessages(updateEdges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget))
     }
     g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
-    e.new <- getLoss(g)
-    test <- e - e.new > epsilon
+    e.new <- 2 *  getLoss(g) / g$n  
+    message("Error: ", round(e.new, 3), "\n")
+    message("Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n")
+    test <- (e - e.new) > epsilon || i < max.iter
     i <- i + 1
     e <- e.new
   }
@@ -346,14 +403,14 @@ fitInitializedNetwork <- function(g, epsilon, min.iter, verbose=F){
 #' Fit a Neural Network on a Graph Structure
 #' 
 #' @export
-fitNetwork <- function(g, input.table, output.table, epsilon=.05, min.iter=3, 
+fitNetwork <- function(g, input.table, output.table, epsilon=.05, max.iter=3, 
                        activation=logistic, activation.prime=logistic.prime, 
                        min.max.constraints = NULL, verbose=F){
   g <- initializeGraph(g, input.table, output.table, 
                        activation = activation, 
                        activation.prime = activation.prime,
                        min.max.constraints = min.max.constraints)
-  g <- fitInitializedNetwork(g, epsilon, min.iter, verbose)
+  g <- fitInitializedNetwork(g, epsilon, max.iter, verbose)
 }
 
 #' Add new data to fitted model in order to do prediction
@@ -375,7 +432,8 @@ getDependentEdges <- function(g, e){
   #Determine the edges in g whose weights impact the 
   #optimization of the weight of edge e 
   e <- E(g)[ e]
-  v.trg <- get.edgelist(g)[e, 2] %>% as.numeric
+  v_trg_name <- get.edgelist(g)[e, 2]
+  v.trg <- V(g)[v_trg_name] %>% as.numeric
   output.v <- V(g)[type == "output"] %>% as.numeric
   dependent.edges <- NULL
   if(!(v.trg == output.v)){
