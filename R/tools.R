@@ -26,6 +26,8 @@ get_fitted <- function(g){
 {do.call("rbind", .)} %>% t %>% as.data.frame %>% `names<-`(vertices_of_interest$name) # Put into a data frme
 }
 
+
+
 #' Pull observed data for the inputs and outputs of a signal graph model into a data frame
 #' 
 #' Pull the observed data (AKA examples) for the input and output vertices of a signal graph model into a data frame.

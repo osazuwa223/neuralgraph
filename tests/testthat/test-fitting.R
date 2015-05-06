@@ -79,9 +79,22 @@ test_that("fitNetwork returns a graph structure", {
   expect_true(class(g) == "igraph")
 })
 
-test_that("in an initialized model where the predicted and observed output 
-are exactly the same, the model results of fitting the model should 
-be a graph with 0 error and unchanged weights.", {
+test_that("logistic_prime basic function is working as expected", {
+  f <- function(z) exp(-z)/(1+exp(-z))^2
+  z <- runif(100) 
+  expect_equal(f(z), logistic_prime(z))
+  expect_equal(logistic(4) - logistic(-4), integrate(Vectorize(logistic_prime), -4, 4)$value)
+})
+
+test_that("after the weights of a given vertex has changed, the prediction should change",{
+  g <- get_gate("AND")
+  original <- V(g)[type=="output"]$output.signal %>% unlist
+  updated <- getPrediction(g, V(g)["AND"], runif(3))
+  expect_true(!identical(original, updated))
+})
+
+test_that("in an initialized model where the predicted and observed output are exactly the same, 
+the model results of fitting the model should be a graph with 0 error and unchanged weights.", {
   g <- generateMultiConnectedDAG(8)
   inputs <- V(g)[igraph::degree(g, mode="in") == 0]
   outputs <- V(g)[igraph::degree(g, mode="out") == 0]

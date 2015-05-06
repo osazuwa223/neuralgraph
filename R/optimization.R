@@ -24,6 +24,7 @@ getLinearCombination <- function(weights, model.mat) as.numeric(model.mat %*% we
 #' @param e edge index of the individual element of the weight vector where the derivative is being calculated
 #' @return a vector corresponding to the derivative
 doChainRule <- function(g, v, e){
+  if(!(length(v) == 1 && length(e) == 1)) stop("doChainRule() works on only one vertex and only one edge at a time.") 
   e.src <- getEdgeVertex(g, e, "from")
   if(v == e.src) stop("The chainrule has gone back too far, v: ", v, " e: ", e)
   e.trg <- getEdgeVertex(g, e, "to") #Grab the target vertex
@@ -32,7 +33,7 @@ doChainRule <- function(g, v, e){
          w.r.t an edge weight that that does not affect that output. v: ", v, " e: ", e)  
   }
   f.prime.input <- unlist(V(g)[v]$f.prime.input)
-  #Next check that the edge is not an incoming edge to v
+  #Next check that the edge is an incoming edge to v
   if(e.trg == v){
     output <- unlist(V(g)[e.src]$output.signal) * f.prime.input
   }else{
@@ -79,6 +80,7 @@ getPrediction <- function(g, v, new_weights){
   #message("Prediction function call: candidate weights being propagated forward.")
   prediction.graph <- resetUpdateAttributes(g)
   if(length(E(prediction.graph)[to(v)]) == 0) stop("Attempted to update incoming edge weights for parentless node.")
+  if(length(E(prediction.graph)[to(v)]) != length(new_weights)) stop("# of weights doesn't match # of incoming edges.")
   E(prediction.graph)[to(v)]$weight <- new_weights
   prediction.graph <- updateVertices(prediction.graph, getDeterminers = iparents, callback = calculateVals)
   prediction <- unlist(V(prediction.graph)[type == "output"]$output.signal)
