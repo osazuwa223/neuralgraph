@@ -20,19 +20,20 @@ isValid <- function(item){
 #' @return an updated graph model
 calculateVals <- function(g, v.index){
   v <- V(g)[v.index]
-  v.parents <- iparents(g, v)
+  v.parents <- iparents(g, v) # Grab the parents of the index
   if(length(v.parents) == 0) stop("Attempting apply activation function
                                   to a node without parents.")
-  parent.val.mat <- do.call("cbind", V(g)[v.parents]$output.signal)
-  weights <- matrix(E(g)[to(v)]$weight, ncol=1)
-  linear.combination <- as.numeric(parent.val.mat %*% weights)
-  V(g)[v]$input.signal <- list(linear.combination)
-  V(g)[v]$f.prime.input <- list(g$activation.prime(linear.combination))
-  output <- g$activation(linear.combination)
+  parent.val.mat <- do.call("cbind", V(g)[v.parents]$output.signal) # Create a matrix with the parent node output values in the colums
+  weights <- matrix(E(g)[to(v)]$weight, ncol=1) # Create a verticle weight vector
+  linear.combination <- as.numeric(parent.val.mat %*% weights) # Calculate the linear combination and convert to numeric
+  V(g)[v]$input.signal <- list(linear.combination) # Add it to input signal attribute
+  V(g)[v]$f.prime.input <- list(g$activation.prime(linear.combination)) # Apply f prime and add to the f prime input signal attribute
+  output <- g$activation(linear.combination) # apply activation function and add it to activation function attribute
   V(g)[v]$output.signal <- list(output)
-  V(g)[v]$output.signal %>% unlist %>% {!isValid(.)} %>% `if`(stop("Error in output for vertex ", v.index))
+  V(g)[v]$output.signal %>% unlist %>% {!isValid(.)} %>% `if`(stop("When calculating values of vertex ", v.index, " there were NA, infinite, or otherwise invalid values."))
   g
 }
+
 
 #' Reset Model Attributes
 #' 
@@ -114,7 +115,7 @@ initializeWeights <- function(g){
 #' 
 #' @export
 initializeGraph <- function(g, input.table, output.table, activation=logistic, 
-                            activation.prime=logistic.prime, min.max.constraints=NULL){
+                            activation.prime=logistic_prime, min.max.constraints=NULL){
   if(length(
     intersect(list.graph.attributes(g), 
                       c("activation", "activation.prime", 
@@ -180,7 +181,7 @@ fitInitializedNetwork <- function(g, epsilon, max.iter, verbose=F){
 #' 
 #' @export
 fitNetwork <- function(g, input.table, output.table, epsilon=.05, max.iter=3, 
-                       activation=logistic, activation.prime=logistic.prime, 
+                       activation=logistic, activation.prime=logistic_prime, 
                        min.max.constraints = NULL, verbose=F){
   g <- initializeGraph(g, input.table, output.table, 
                        activation = activation, 

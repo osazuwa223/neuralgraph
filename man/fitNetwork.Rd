@@ -5,7 +5,7 @@
 \title{Fit a Neural Network on a Graph Structure}
 \usage{
 fitNetwork(g, input.table, output.table, epsilon = 0.05, max.iter = 3,
-  activation = logistic, activation.prime = logistic.prime,
+  activation = logistic, activation.prime = logistic_prime,
   min.max.constraints = NULL, verbose = F)
 }
 \description{

@@ -16,13 +16,13 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
     `names<-`("4")
   g <- initializeGraph(g, input.table, output.table, 
                   activation = logistic,
-                  activation.prime = logistic.prime,
+                  activation.prime = logistic_prime,
                   min.max.constraints = c(min = -Inf, max = Inf))
  # Fails if you initialize twice
  expect_error(
    initializeGraph(g, input.table, output.table,
                        activation = logistic, 
-                       activation.prime = logistic.prime,
+                       activation.prime = logistic_prime,
                        min.max.constraints = c(min = -Inf, max = Inf)),
    "This graph structure seems to have already been updated."
    )
@@ -73,7 +73,7 @@ test_that("fitNetwork returns a graph structure", {
     `names<-`("4")
   g <- fitNetwork(g, input.table, output.table, 
                   activation = logistic,
-                  activation.prime = logistic.prime,
+                  activation.prime = logistic_prime,
                   min.max.constraints = c(min = -Inf, max = Inf),
                   verbose=T)
   expect_true(class(g) == "igraph")

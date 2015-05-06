@@ -3,13 +3,13 @@
 \name{logistic}
 \alias{logistic}
 \alias{logistic_prime}
-\title{The Logistic Function and Its Derivative}
+\title{The logistic function}
 \usage{
 logistic(z)
 
 logistic_prime(z)
 }
 \description{
-The Logistic Function and Its Derivative
+The logistic function
 }
 

@@ -5,7 +5,7 @@
 \title{Primes a Graph Object for Fitting a Neural Network Model}
 \usage{
 initializeGraph(g, input.table, output.table, activation = logistic,
-  activation.prime = logistic.prime, min.max.constraints = NULL)
+  activation.prime = logistic_prime, min.max.constraints = NULL)
 }
 \arguments{
 \item{g}{igraph object with vertices corresponding to input nodes, output nodes, and

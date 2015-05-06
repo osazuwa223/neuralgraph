@@ -7,5 +7,6 @@ Author: Robert Osazuwa Ness
 Description: Signalgraph fits graphical models for signal processing, using well-known graphical tools in R.
 License: GPL-2
 Depends: R (>= 2.14),
-         igraphr
+         lucy,
+         magrittr
 Suggests: testthat
