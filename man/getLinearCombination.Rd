@@ -4,7 +4,7 @@
 \alias{getLinearCombination}
 \title{A Simple Matrix Multiplication to Calculate Linear Inputs}
 \usage{
-getLinearCombination(weights, model.mat)
+getLinearCombination(wts, model.mat)
 }
 \description{
 A Simple Matrix Multiplication to Calculate Linear Inputs

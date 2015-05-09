@@ -7,7 +7,7 @@ logistic <- function(z) 1 / (1 + exp(-z))
 logistic_prime <- function(z) logistic(z) * (1 - logistic(z))
 
 #' A Simple Matrix Multiplication to Calculate Linear Inputs
-getLinearCombination <- function(weights, model.mat) as.numeric(model.mat %*% weights)
+getLinearCombination <- function(wts, model.mat) as.numeric(model.mat %*% wts)
 
 #' Back-propagation of derivative calculation
 #' 
@@ -102,27 +102,33 @@ getLoss <- function(g){
 getLossFunction <- function(g, v){
   #Creating a temporary graph where new weights for v are added, the values are propagated forward.
   #And a new prediction is generated
-  lossFunction <- function(weights){
-    prediction <- getPrediction(g, v, weights)
+  lossFunction <- function(wts){
+    prediction <- getPrediction(g, v, wts)
     observed <- unlist(V(g)[type=="output"]$observed)
     .5 * sum( (observed - prediction) ^ 2)
   }
   lossFunction
 } 
 
+#' Gradient generating closure
+#' 
+#' In the network, any given node v has a set of incoming edges.  Those incoming edges have weights.
+#' The fitting procedure fits the weights in the network by seperately these weights for each node.
+#' More specifically, a seperate optimization is conducted for each node v, where in the weights on the 
+#' incoming edges to v are optimized on the loss function.  
+#' 
+#' This closure returns a function that computes the gradient of all the weights 
+#' on the incoming edges of a node v.  The output function is intended to be passed to an optimization
+#' functional.  I use a closure because the optim functional only accepts a weights are
+# 1) Get the parents and parent matrices
 getGradientFunction <- function(g, v){
-  # This closure returns a function that computes the gradient of all the weights 
-  # on the incoming edges of a node v.  Unlike in multi-layer perceptrons where the
-  # weights at each level are optimized together, here the weights for each incoming 
-  # edge for each node are optimized together
-  # 1) Get the parents and parent matrices
   v.incoming.edges <- E(g)[to(v)]
   edge.names <- paste(v.incoming.edges)
   incoming.edge.count <- length(v.incoming.edges)
   output.node <- V(g)[type=="output"]
-  gradientFunction <- function(weights){
+  gradientFunction <- function(wts){
     #Calculates the gradient for a set of weights using the doChainRule function
-    prediction <- getPrediction(g, v, weights)
+    prediction <- getPrediction(g, v, wts)
     observed <- unlist(output.node$observed)
     loss.function.derivative <- -1 * (observed - prediction) # derivative of .5 * squared loss
     chain.rule.output <- matrix(NA, nrow = g$n, ncol = incoming.edge.count, dimnames = list(NULL, edge.names))
@@ -135,23 +141,23 @@ getGradientFunction <- function(g, v){
         loss.function.derivative * chain.rule.result
       })
     )
-    gradient.output    
+    as.numeric(gradient.output)
   }
   gradientFunction
 }
 
 getOptimizationFunction <- function(g, lossFunction, getGradient){
   if(!is.null(g$min.max.constraints)){
-    lower <- rep(g$min.max.constraints["min"], length(weights))
-    upper <- rep(g$min.max.constraints["max"], length(weights))
+    lower <- rep(g$min.max.constraints["min"], length(wts))
+    upper <- rep(g$min.max.constraints["max"], length(wts))
     names(lower) <- names(upper) <- NULL
-    optimFunction <- function(weights){
-      optim(weights, fn = lossFunction, gr = getGradient, method="L-BFGS-B",
+    optimFunction <- function(wts){
+      optim(wts, fn = lossFunction, gr = getGradient, method="L-BFGS-B",
             lower=lower, upper=upper)$par
     }
   }else{
-    optimFunction <- function(weights){
-      optim(weights, fn = lossFunction, gr = getGradient, method="BFGS")$par
+    optimFunction <- function(wts){
+      optim(wts, fn = lossFunction, gr = getGradient, method="BFGS")$par
     }
   }
   optimFunction
@@ -177,4 +183,16 @@ fitWeightsForEdgeTarget <- function(g, e){
   if(new_weight == old_weight) message(E(g)[e]$name, ': Old weight = ', old_weight, ', New Weight = ', new_weight)
   E(g)[e]$updated <- TRUE
   g
+}
+
+#' Gradient descent on weights
+#' 
+#' @param initial weight values
+#' @param loss function that takes a weight vector as an input and returns a single value
+#' @param gradient function that takes weight vector as an input are returns a gradient vector of the same length
+#' @param step step size
+#' @param maxit maximum number of iterations
+#' @param epsilon stop when change in loss is less than epsilon.
+gradientDescent <- function(wts_init, grad, step = .001, maxit = 100, epsilon = .01){
+  
 }

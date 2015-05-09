@@ -16,7 +16,7 @@ Records of the survival of Titanic Passengers and such information as sex, age, 
 number of parents/children aboard, number of siblings or spouses aboard, passenger class and other fields.
 }
 \details{
-Variable descrptions and how the data set was constructed: \url{http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/titanic3info.txt}
+Variable descriptions and how the data set was constructed: \url{http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/titanic3info.txt}
 }
 \keyword{datasets}
 
