@@ -1,4 +1,5 @@
 devtools::load_all("../../R/optimization.R")
+devtools::load_all("../../R/tools.R")
 #devtools::load_all("R/optimization.R")
 library(plyr)
 library(dplyr)
@@ -6,9 +7,9 @@ context("optimization")
 
 # Testing using Titanic3 data
 data(titanic3)
-titan <- filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not worrying about NA vals
-  mutate(survived = as.numeric(survived)) %>%
-  select(age, survived, fare) %>%
+titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not worrying about NA vals
+  {dplyr::mutate(., survived = as.numeric(survived))} %>%
+  {dplyr::select(., age, survived, fare)} %>%
   rescale_df %$% #Note, everything is rescaled to between 0 and 1
   df
 

@@ -1,4 +1,6 @@
 devtools::load_all("../../R/optimization.R")
+devtools::load_all("../../R/tools.R")
+option <- TRUE
 #devtools::load_all("R/optimization.R")
 context("Signal graph data structure")
 
@@ -60,6 +62,7 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
 })
 
 test_that("fitNetwork returns a graph structure", {
+  long_test(option)
   set.seed(21)
   g <- generateMultiConnectedDAG(5)
   inputs <- c("2", "3")
@@ -107,6 +110,7 @@ test_that("prediction should never produce NA or other invalid values, it should
 })
 
 test_that("after a pass at fitting, all edges have been traversed.", {
+  long_test(option)
   g1 <- get_gate("AND", c(3, 2))
   g2 <- updateEdges(g1, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
   # We know an edge is traversed when fitWeightsForEdgeTarget sets 'updated' attribute to 'TRUE'.
@@ -117,10 +121,11 @@ test_that("after a pass at fitting, all edges have been traversed.", {
 })
 
 test_that("test that if the updated status of intercepts/biases and input nodes ever change, an error is thrown", {
+  long_test(option)
   data(titanic3)
-  titan <- filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not worrying about NA vals
-    mutate(survived = as.numeric(survived)) %>%
-    select(age, survived, fare) %>%
+  titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not worrying about NA vals
+    {dplyr::mutate(., survived = as.numeric(survived))} %>%
+    {dplyr::select(., age, survived, fare)} %>%
     rescale_df %$% #Note, everything is rescaled to between 0 and 1
     df
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%

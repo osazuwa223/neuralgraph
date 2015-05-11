@@ -68,3 +68,12 @@ format_vertex_list <- function(output){
 examine_signal_graph <- function(g){
   igraphr::examineGraph(g, formatVertexAttr=format_vertex_list)
 }
+
+#' Perform long tests
+#'  
+#' Select whether or not to perform more time consuming tests by setting opt to TRUE or FALSE
+long_test <- function(option){
+  if(!option){
+    eval(quote(testthat::skip("Skipping time consuming test.")), parent.frame())
+  } 
+}
