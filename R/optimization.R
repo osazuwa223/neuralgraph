@@ -146,18 +146,38 @@ getGradientFunction <- function(g, v){
   gradientFunction
 }
 
+
+#' Closure for optimization with BFGS and specified gradient function
 getOptimizationFunction <- function(g, lossFunction, getGradient){
   if(!is.null(g$min.max.constraints)){
-    lower <- rep(g$min.max.constraints["min"], length(wts))
-    upper <- rep(g$min.max.constraints["max"], length(wts))
-    names(lower) <- names(upper) <- NULL
+    low <- g$min.max.constraints["min"] 
+    high <- g$min.max.constraints["max"]
+    names(low) <- names(high) <- NULL
     optimFunction <- function(wts){
       optim(wts, fn = lossFunction, gr = getGradient, method="L-BFGS-B",
-            lower=lower, upper=upper)$par
+            lower=rep(low, length(wts)), upper=rep(high, length(wts)))$par
     }
   }else{
     optimFunction <- function(wts){
       optim(wts, fn = lossFunction, gr = getGradient, method="BFGS")$par
+    }
+  }
+  optimFunction
+}
+
+#' CLosure for optimization with BFGS, no gradient function specified
+getOptimizationFunctionNG <- function(g, lossFunction){
+  if(!is.null(g$min.max.constraints)){
+    low <- g$min.max.constraints["min"] 
+    high <- g$min.max.constraints["max"]
+    names(low) <- names(high) <- NULL
+    optimFunction <- function(wts){
+      optim(wts, fn = lossFunction, method="L-BFGS-B",
+            lower=rep(low, length(wts)), upper=rep(high, length(wts)))$par
+    }
+  }else{
+    optimFunction <- function(wts){
+      optim(wts, fn = lossFunction, method="BFGS")$par
     }
   }
   optimFunction
@@ -168,7 +188,7 @@ fitWeightsForNode <- function(g, v){
   lossFunction <- getLossFunction(g, v)
   getGradient <- getGradientFunction(g, v)
   weights.initial <- E(g)[to(v)]$weight
-  optimizer <- getOptimizationFunction(g, lossFunction, getGradient)
+  optimizer <- getOptimizationFunctionNG(g, lossFunction)
   weights.updated <- optimizer(weights.initial)
   E(g)[to(v)]$weight <- weights.updated
   g
@@ -180,7 +200,7 @@ fitWeightsForEdgeTarget <- function(g, e){
   message("Fitting for edge ", E(g)[e]$name)
   g <- fitWeightsForNode(g, edge.target)
   new_weight <- E(g)[e]$weight
-  if(new_weight == old_weight) message(E(g)[e]$name, ': Old weight = ', old_weight, ', New Weight = ', new_weight)
+  message(E(g)[e]$name, ': Old weight = ', old_weight, ', New Weight = ', new_weight)
   E(g)[e]$updated <- TRUE
   g
 }
@@ -192,7 +212,33 @@ fitWeightsForEdgeTarget <- function(g, e){
 #' @param gradient function that takes weight vector as an input are returns a gradient vector of the same length
 #' @param step step size
 #' @param maxit maximum number of iterations
-#' @param epsilon stop when change in loss is less than epsilon.
-gradientDescent <- function(wts_init, grad, step = .001, maxit = 100, epsilon = .01){
-  
+#' @param epsilon stop when change in loss output is less than epsilon 10 iterations in a row.
+gradientDescent <- function(wts_init, grad, loss, maxit = 100, epsilon = .01){
+  i <- 0
+  little_movement <- 0
+  wts <- wts_init
+  step <- .001
+  ls_maker <- function(wts, gr) Vectorize(function(step) loss(wts - gr * step)) # a closure for doing line search
+  while(i < maxit){
+    print(i)
+    paste("wts=", paste(round(wts, 3), collapse=" ")) %>% print
+    gr <- grad(wts) # get gradient
+    paste("gr=", paste(round(gr, 3), collapse=" ")) %>% print
+    ls <- ls_maker(wts, gr) # get line search function
+    step_new <- tryCatch(optimise(ls, c(0, 100))$minimum, # do line search
+                         error = function(e) "failed")
+    print(step_new)
+    if(step_new == "failed") browser()
+    wts_new <- wts - step_new * grad(wts) # get a new weight
+    e <- abs(loss(wts) - loss(wts_new)) # Check against the old weight
+    if(e < epsilon) little_movement <- little_movement + 1 else little_movement <- 0
+    if(little_movement > 10){
+      message("little movement")
+      browser() # Return if we already have little movement
+    } 
+    wts <- wts_new
+    step <- step_new
+    i <- i + 1
+  }
+  wts
 }

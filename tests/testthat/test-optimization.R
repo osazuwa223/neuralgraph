@@ -81,9 +81,12 @@ test_that("hand calculation of doChainRule in layer-free multivarite produces sa
 })
 
 # Now complex graphs
+g <- mlp_graph(c("age", "fare"), "survived", layers = c(2, 2)) %>%
+  initializeGraph(input.table = select(titan, age, fare), 
+                  output.table = select(titan, survived))
 
 test_that("doChainRule errors in the case when the vertex value does not depend on the weight", {
-  expect_error(doChainRule(g1, v = V(g1)["H21"], e = E(g1)["H11" %->% "H22"]),
-               "\n  You've attempted to find the gradient of a node's output\n         w.r.t an edge weight that that does not affect that output. v: 6 e: 10\n")
+  expect_error(doChainRule(g, v = V(g)["H21"], e = E(g)["H11" %->% "H22"]),
+               "\n  You've attempted to find the gradient of a node's output\n         w.r.t an edge weight that that does not affect that output. v: 5 e: 7\n")
                
 })

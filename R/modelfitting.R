@@ -41,6 +41,10 @@ calculateVals <- function(g, v.index){
 #' @param g a model
 #' @return A model with updated attributes reset to FALSE
 resetUpdateAttributes <- function(g){
+  v_updated <- V(g)[type %in% c("input", "intercept")]$updated
+  if(!is.null(v_updated)){
+    if(any(!(v_updated))) stop("Inputs or biases had FALSE for updated.")
+  }
   V(g)$updated <- FALSE
   E(g)$updated <- FALSE
   V(g)[type %in% c("input", "intercept")]$updated <- TRUE
@@ -154,11 +158,17 @@ initializeGraph <- function(g, input.table, output.table, activation=logistic,
   g
 }
 
-fitInitializedNetwork <- function(g, epsilon, max.iter, verbose=F){
+#' Fit an initialized network
+#' 
+#' g an initialized graph
+#' epsilon when means square area falls below epsilon, stop
+#' max.iter maximum number of iterations
+#' verbose if TRUE print messages generated during optimization
+fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100, verbose=F){
   e <- 2 * getLoss(g)  / g$n  #Multiply * 2 because of .5 coefficient in loss function. Devide by n to get mean error loss
-  i <- 1
+  i <- 0
   test <- TRUE
-  while(test){
+  while(i < max.iter){
     print(i)
     g <- resetUpdateAttributes(g)
     if(verbose){
@@ -170,9 +180,9 @@ fitInitializedNetwork <- function(g, epsilon, max.iter, verbose=F){
     e.new <- 2 *  getLoss(g) / g$n  
     message("Error: ", round(e.new, 3), "\n")
     message("Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n")
-    test <- (e - e.new) > epsilon || i < max.iter
-    i <- i + 1
+    if((e - e.new) < epsilon) return(g)
     e <- e.new
+    i <- i + 1
   }
   g
 }
@@ -205,9 +215,8 @@ getDF <- function(g){
   output
 }
 
+#' Determine the edges in g whose weights impact the optimization of the weight of edge e 
 getDependentEdges <- function(g, e){
-  #Determine the edges in g whose weights impact the 
-  #optimization of the weight of edge e 
   e <- E(g)[ e]
   v_trg_name <- get.edgelist(g)[e, 2]
   v.trg <- V(g)[v_trg_name] %>% as.numeric
@@ -222,3 +231,6 @@ getDependentEdges <- function(g, e){
   }
   dependent.edges
 }
+
+
+
