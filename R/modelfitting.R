@@ -13,7 +13,9 @@ isValid <- function(item){
 
 #' Calculate the Values of Vertices in Neural Network Model
 #' 
-#' For a given vertex, input and the output signals are calculated.
+#' For a given vertex, the values for the vertex attribute 'input.signal' are calculated as the linear 
+#' combination of outputs with edge weights as weights. 'output.signal' is calculated by applying the activation
+#' function to the input signal.
 #' 
 #' @param g, the graph model
 #' @param v.index, the index of a vertex
@@ -119,7 +121,7 @@ initializeWeights <- function(g){
 #' 
 #' @export
 initializeGraph <- function(g, input.table, output.table, activation=logistic, 
-                            activation.prime=logistic_prime, min.max.constraints=NULL){
+                            activation.prime=logistic_prime, model=NULL, min.max.constraints=NULL){
   if(length(
     intersect(list.graph.attributes(g), 
                       c("activation", "activation.prime", 
@@ -127,6 +129,10 @@ initializeGraph <- function(g, input.table, output.table, activation=logistic,
             ) > 1 ){
     stop("This graph structure seems to have already been updated.")
   }
+  if(!is.null(model)){
+    if(!(model %in% c("glmnet"))) stop("Only working with glmnet.")
+    g$model <- model
+  } 
   g$activation <- activation
   g$activation.prime <- activation.prime
   if(!is.null(min.max.constraints)) names(min.max.constraints) <- c("min", "max")
