@@ -91,7 +91,7 @@ getPrediction <- function(g, v, new_weights){
 getLoss <- function(g){
   observed <- unlist(V(g)[type=="output"]$observed)
   prediction <- unlist(V(g)[type=="output"]$output.signal)
-  .5 * sum( (observed - prediction) ^ 2)
+  sum( (observed - prediction) ^ 2)
 }
 
 #' Closure for generating a least squares loss function for use in optimization
@@ -108,7 +108,7 @@ getLossFunction <- function(g, v){
   lossFunction <- function(wts){
     prediction <- getPrediction(g, v, wts)
     observed <- unlist(V(g)[type=="output"]$observed)
-    .5 * sum( (observed - prediction) ^ 2)
+    sum( (observed - prediction) ^ 2)
   }
   lossFunction
 } 
@@ -148,7 +148,7 @@ getGradientFunction <- function(g, v){
     #Calculates the gradient for a set of weights using the doChainRule function
     prediction <- getPrediction(g, v, wts)
     observed <- unlist(output.node$observed)
-    loss.function.derivative <- -1 * (observed - prediction) # derivative of .5 * squared loss
+    loss.function.derivative <- -2 * (observed - prediction) 
     chain.rule.output <- matrix(NA, nrow = g$n, ncol = incoming.edge.count, dimnames = list(NULL, edge.names))
     for(e.index in v.incoming.edges){
       e <- E(g)[e.index]

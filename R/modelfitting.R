@@ -171,7 +171,7 @@ initializeGraph <- function(g, input.table, output.table, activation=logistic,
 #' max.iter maximum number of iterations
 #' verbose if TRUE print messages generated during optimization
 fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100, verbose=F){
-  e <- 2 * getLoss(g)  / g$n  #Multiply * 2 because of .5 coefficient in loss function. Devide by n to get mean error loss
+  e <-  getLoss(g)  / g$n 
   i <- 0
   test <- TRUE
   while(i < max.iter){
