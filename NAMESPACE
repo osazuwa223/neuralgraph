@@ -2,7 +2,6 @@
 
 export(examine_signal_graph)
 export(fitNetwork)
-export(getPrediction)
 export(get_deviance)
 export(get_fitted)
 export(get_gate)

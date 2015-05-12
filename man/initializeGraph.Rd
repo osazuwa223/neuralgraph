@@ -4,8 +4,8 @@
 \alias{initializeGraph}
 \title{Primes a Graph Object for Fitting a Neural Network Model}
 \usage{
-initializeGraph(g, input.table, output.table, activation = logistic,
-  activation.prime = logistic_prime, model = NULL,
+initializeGraph(g, input.table, output.table, penalty = 0,
+  activation = logistic, activation.prime = logistic_prime, model = NULL,
   min.max.constraints = NULL)
 }
 \arguments{

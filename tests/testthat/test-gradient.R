@@ -47,6 +47,7 @@ g <- mlp_graph("age", "survived") %>%
   updateVertices(getDeterminers = iparents, callback = calculateVals)
 
 test_that("doChainRule in layer-free univarite produces logistic_prime(input * weight) * input", {
+  skip("not doing gradient tests")
   weight <- E(g)[to("survived")]$weight
   age_out <- V(g)["age"]$output.signal %>% unlist
   expected <- logistic_prime(weight * age_out) * age_out 
@@ -55,6 +56,7 @@ test_that("doChainRule in layer-free univarite produces logistic_prime(input * w
 })
 
 test_that("getGradient in layer-free univarite produces -(Y - f(input)) * logistic_prime(input * weight) * input", {
+  skip("not doing gradient tests")
   weight <- E(g)[to("survived")]$weight
   age_out <- V(g)["age"]$output.signal %>% unlist
   Y <- V(g)["survived"]$observed %>% unlist
@@ -88,7 +90,7 @@ expect_equal(expected, gradient_output)
 
 test_that("gradient zero equals loss minimimum", {
   skip("skipping gradient problems")
-  loss_min <- getLossFunction(g, "survived") %>% # Generate the loss function
+  loss_min <- getObjective(g, "survived") %>% # Generate the loss function
     optimize(c(-5, 5)) %$% # Optimize it
     minimum
   grad_zero <- getGradientFunction(g, "survived") %>%
@@ -118,7 +120,7 @@ test_that("gradient is positive if greater than minimum, negative if less than m
 
 test_that("numeric integral of gradient looks like loss", {
   skip("skipping gradient problems")
-  get_loss <- getLossFunction(g, "survived")
+  get_loss <- getObjective(g, "survived")
   # Numeric results are the most correct around the minimum
   get_gradient <- getGradientFunction(g, "survived")
   # The numeric integral of the gradiet should approximate loss (at least close to the minimum ~ -.95)
@@ -130,7 +132,7 @@ test_that("numeric integral of gradient looks like loss", {
 # This may be a problem. Skipping for now.
 test_that("gradient should be giving expected values as numeric derivative",{
   skip("skipping gradient problems")
-  get_loss <- Vectorize(getLossFunction(g, "survived"))
+  get_loss <- Vectorize(getObjective(g, "survived"))
   get_grad <- Vectorize(getGradientFunction(g, "survived"))
   val <- -0.9468121
   expected_deriv <- get_grad(val) %>% as.numeric
@@ -155,7 +157,7 @@ test_that("doChainRule errors in the case when the vertex value does not depend 
 
 test_that("gradient descent yields weight with gradient near 0 when loss is minimized",{
   skip("skipping gradient problems")
-  loss <- getLossFunction(g2, "survived")
+  loss <- getObjective(g2, "survived")
   grad <- getGradientFunction(g2, "survived")
   gd_min <- E(g2)[to("survived")]$weight %>%
     gradientDescent(grad, loss)
@@ -184,7 +186,7 @@ test_that("gradient is positive if greater than minimum, negative if less than m
 
 test_that("a limited optimization reduces loss.", {
   skip("skipping gradient problems")
-  get_loss <- getLossFunction(g2, "H11")
+  get_loss <- getObjective(g2, "H11")
   get_gradient <- getGradientFunction(g2, "H11")
   initial_weights <- E(g1)[to("H11")]$weight
   updated_weights <- gradientDescent(initial_weights, get_loss, get_gradient, control = list(maxit = 200))#$par #Just allowing for 10 iterations
@@ -193,7 +195,7 @@ test_that("a limited optimization reduces loss.", {
 
 test_that("use of gradient should at least speed things up.", {
   skip("skipping gradient problems")
-  get_loss <- getLossFunction(g1, "AND")
+  get_loss <- getObjective(g1, "AND")
   get_gradient <- getGradientFunction(g1, "AND")
   initial_weights <- E(g1)[to("AND")]$weight
   time_no_grad <- system.time(gradientDescent(initial_weights, get_loss, method = "BFGS", 
@@ -206,7 +208,7 @@ test_that("use of gradient should at least speed things up.", {
 test_that("optimization with the gradient outperforms optimization with a random gradient", {
   skip("skipping gradient problems")
   v <- V(g2)["H21"]
-  loss <- getLossFunction(g2, v)
+  loss <- getObjective(g2, v)
   gradient <- getGradientFunction(g2, v)
   random_gradient <- function(weight) runif(length(weight))
   weights_initial <- E(g2)[to(v)]$weight

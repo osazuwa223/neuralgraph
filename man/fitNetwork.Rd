@@ -4,11 +4,30 @@
 \alias{fitNetwork}
 \title{Fit a Neural Network on a Graph Structure}
 \usage{
-fitNetwork(g, input.table, output.table, epsilon = 0.05, max.iter = 3,
-  activation = logistic, activation.prime = logistic_prime,
+fitNetwork(g, input.table, output.table, penalty = 0, epsilon = 0.05,
+  max.iter = 10, activation = logistic, activation.prime = logistic_prime,
   min.max.constraints = NULL, verbose = F)
 }
+\arguments{
+\item{g}{an igraph object, that has not yet been converted into a signal graph}
+
+\item{input.table}{data frame where columns correspond to inputs}
+
+\item{output.table}{data frame where columns correspond to outputs}
+
+\item{penalty}{penalty parameter for penalized lease squares, defaults to 0 for simple least squares}
+
+\item{epsilon}{stop optimization when reduction in cost function is less than epsilon}
+
+\item{max.iter}{maximum number of iterations of optimization. A signal graph is fit through iteratively
+fitting subsets of weights, much like back-propagation.}
+
+\item{activation}{the activation function used to map the output of parents to the input of children nodes.}
+
+\item{activation.prime}{the derivative of the activation function, used in gradient calculation.
+Currently not used in favor of numeric gradients.}
+}
 \description{
-Fit a Neural Network on a Graph Structure
+Initializes a graph into a signal graph and then fits the model.
 }
 

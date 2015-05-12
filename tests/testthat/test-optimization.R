@@ -48,3 +48,15 @@ test_that("prediction from logistic function works as expected.", {
     expect_true
 })
 
+###########################################################################################
+# Testing penalized loss
+test_that("penalized loss is greater than unpenalized loss for the same graph",{
+  g_pen <- g
+  g_pen$penalty <- .05
+  g$penalty <- 0
+  v <- V(g)["survived"]
+  pen_loss <- getObjective(g_pen, v)
+  loss <- getObjective(g, v)
+  expect_more_than(pen_loss(E(g)[to(v)]$weight), loss(E(g)[to(v)]$weight))
+})
+

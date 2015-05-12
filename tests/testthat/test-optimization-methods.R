@@ -1,6 +1,7 @@
 # Testing and evaluation of performance of various optimization techniques
 devtools::load_all("../../R/optimization.R")
 devtools::load_all("../../R/tools.R")
+
 #devtools::load_all("R/optimization.R")
 library(plyr)
 library(dplyr)
@@ -36,7 +37,7 @@ test_that("in single variate no intercept case, pure loss minimization gets the 
                   start = list(w = E(g)[to("survived")]$weight)) %>%
     coef %>% as.numeric
   # Test with just optimize
-  output <- getLossFunction(g, "survived") %>% # Generate the loss function
+  output <- getObjective(g, "survived") %>% # Generate the loss function
     optimize(c(-5, 5)) %$% # Optimize it. True minimum based on data is about -.95
     minimum
   expect_equal(expected, output, tolerance = .02)
@@ -53,7 +54,7 @@ test_that("in multivariate case, pure loss minimization gets the same results as
                   start = as.list(structure(E(g)[to("survived")]$weight, names = c("w1", "w2", "w0")))) %>%
     coef %>% # Get the coefficients 
     as.numeric
-  output <- getLossFunction(g, "survived") %>% # Generate the loss function 
+  output <- getObjective(g, "survived") %>% # Generate the loss function 
     {optim(E(g)$weight, .)} %$%
     par 
   expect_equal(expected, output, tolerance = .1)
@@ -66,14 +67,14 @@ g <- mlp_graph(c("age", "fare"), "survived", c(5, 5)) %>%
                   output.table = select(titan, survived))
 
 test_that("a limited BFGS optimization reduces loss for the output node.", {
-  get_loss <- getLossFunction(g, "survived")
+  get_loss <- getObjective(g, "survived")
   initial_weights <- E(g)[to("survived")]$weight
   updated_weights <- optim(initial_weights, get_loss, control = list(maxit = 30))$par #Just allowing for 10 iterations
   expect_true(get_loss(initial_weights) > get_loss(updated_weights)) 
 })
 
 test_that("a limited BFGS optimization reduces loss for an arbitrary hidden node.", {
-  get_loss <- getLossFunction(g, "H11")
+  get_loss <- getObjective(g, "H11")
   initial_weights <- E(g)[to("H11")]$weight
   updated_weights <- optim(initial_weights, get_loss, control = list(maxit = 30))$par #Just allowing for 10 iterations
   expect_true(get_loss(initial_weights) > get_loss(updated_weights)) 

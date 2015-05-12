@@ -15,6 +15,8 @@ calculateVals(g, v.index)
 an updated graph model
 }
 \description{
-For a given vertex, input and the output signals are calculated.
+For a given vertex, the values for the vertex attribute 'input.signal' are calculated as the linear
+combination of outputs with edge weights as weights. 'output.signal' is calculated by applying the activation
+function to the input signal.
 }
 

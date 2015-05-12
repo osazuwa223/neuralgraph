@@ -66,16 +66,16 @@ doChainRule <- function(g, v, e){
   output
 }
 
-#' Get a new predictions for output vertices after reweighting edges
+#' Get a new graph used for prediction
 #' 
 #' A given vertex has a given set of incoming edges, each of these edges has weights.
-#' Upon supplying the vertex and weights on its incoming edges, this function updates the prediction
-#' on the output edges.
+#' Upon supplying the vertex and weights on its incoming edges, this function updates the graph and
+#' returns the updated graph object.
 #' 
 #' @param g, fitted graph
 #' @param v, the vertex whose incoming edges will be updated
 #' @param weights, a numeric vector containing the weights for those incoming edges.  
-#' @export   
+#' @return a new updated graph that can be used to generate a prediction.
 getPrediction <- function(g, v, new_weights){
   #message("Prediction function call: candidate weights being propagated forward.")
   prediction.graph <- resetUpdateAttributes(g)
@@ -85,7 +85,7 @@ getPrediction <- function(g, v, new_weights){
   prediction.graph <- updateVertices(prediction.graph, getDeterminers = iparents, callback = calculateVals)
   prediction <- unlist(V(prediction.graph)[type == "output"]$output.signal)
   if(!isValid(prediction)) stop("An error occured in predicting vertex ", v)
-  prediction
+  prediction.graph
 }
 
 getLoss <- function(g){
@@ -94,7 +94,7 @@ getLoss <- function(g){
   sum( (observed - prediction) ^ 2)
 }
 
-#' Closure for generating a least squares loss function for use in optimization
+#' Closure for generating a penalized least squares loss function for use in optimization
 #' 
 #' This function is a closure that creates a loss function that takes a weight vector as an argument.
 #' The closure takes a graph vertex as an argument.  The algorithm identifives the incoming edges to the vertex,
@@ -102,31 +102,19 @@ getLoss <- function(g){
 #' for the loss function, and is used as the starting values in the optimization. The function calculates squared
 #' error loss by first taking this weight vector input and predicting the outcome variable, then calculating loss
 #' from the predicted and observed values.  
-#' @param g an initialized signal graph
+#' @param initial_graph an initialized signal graph, the prefix 'initial' in 'initial_graph' is in contrast to 
+#' candidate graphs against which the initial_graph will be compared in the optimization.
 #' @param v the vertex whose weights will be optimized.
-getLossFunction <- function(g, v){
+getObjective <- function(initial_graph, v){
+  if(is.null(initial_graph$penalty)) stop("Penalty has not been specified.")
   lossFunction <- function(wts){
-    prediction <- getPrediction(g, v, wts)
-    observed <- unlist(V(g)[type=="output"]$observed)
-    sum( (observed - prediction) ^ 2)
+    candidate_graph <- getPrediction(initial_graph, v, wts)
+    prediction <- unlist(V(candidate_graph)[type=="output"]$output.signal)
+    observed <- unlist(V(initial_graph)[type=="output"]$observed)
+    sum((observed - prediction) ^ 2) + initial_graph$penalty * sum(E(g)$weight ^ 2)
   }
   lossFunction
 } 
-
-#' Closure for generating a penalized least squares loss function for use in optimization
-#' 
-#' This is an extention of the least squares loss function closure to penalized least squares.
-#' 
-#' This function is a closure that creates a loss function that takes a weight vector as an argument.
-#' The closure takes a graph vertex as an argument.  The algorithm identifives the incoming edges to the vertex,
-#' then pulls the weights from those edges, constructing a weight vector.  This weight vector is the argument
-#' for the loss function, and is used as the starting values in the optimization. The function calculates penalized 
-#' squared error loss by first taking this weight vector input and predicting the outcome variable, 
-#' then calculating loss from the predicted and observed values.  
-#' @param g an initialized signal graph
-#' @param v the vertex whose weights will be optimized.
-#' @seealso getLossFunction
-
 
 #' Gradient generating closure
 #' 
@@ -203,7 +191,7 @@ getOptimizationFunctionNG <- function(g, lossFunction){
 
 fitWeightsForNode <- function(g, v){
   v <- V(g)[v]
-  lossFunction <- getLossFunction(g, v)
+  lossFunction <- getObjective(g, v)
   getGradient <- getGradientFunction(g, v)
   weights.initial <- E(g)[to(v)]$weight
   optimizer <- getOptimizationFunctionNG(g, lossFunction)

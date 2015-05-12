@@ -2,7 +2,7 @@
 % Please edit documentation in R/optimization.R
 \name{getPrediction}
 \alias{getPrediction}
-\title{Get a new predictions for output vertices after reweighting edges}
+\title{Get a new graph used for prediction}
 \usage{
 getPrediction(g, v, new_weights)
 }
@@ -13,9 +13,12 @@ getPrediction(g, v, new_weights)
 
 \item{weights,}{a numeric vector containing the weights for those incoming edges.}
 }
+\value{
+a new updated graph that can be used to generate a prediction.
+}
 \description{
 A given vertex has a given set of incoming edges, each of these edges has weights.
-Upon supplying the vertex and weights on its incoming edges, this function updates the prediction
-on the output edges.
+Upon supplying the vertex and weights on its incoming edges, this function updates the graph and
+returns the updated graph object.
 }
 

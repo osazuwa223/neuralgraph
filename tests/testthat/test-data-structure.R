@@ -1,6 +1,6 @@
 devtools::load_all("../../R/optimization.R")
 devtools::load_all("../../R/tools.R")
-option <- TRUE
+option <- FALSE
 #devtools::load_all("R/optimization.R")
 context("Signal graph data structure")
 
@@ -57,7 +57,7 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
   )
   # Graph attributes should be activation, activation.prime, min.max.constraints
   list.graph.attributes(g) %>%
-    identical(c("activation", "activation.prime", "min.max.constraints", "n")) %>%
+    identical(c("penalty", "activation", "activation.prime", "min.max.constraints", "n")) %>%
     expect_true
 })
 

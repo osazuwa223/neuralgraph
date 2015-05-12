@@ -1,6 +1,6 @@
 devtools::load_all("../../R/tools.R")
 #devtools::load_all("R/tools.R")
-option <- TRUE
+option <- FALSE
 context("Models gets reasonable fits")
 
 test_that("in an initialized model where the predicted and observed output are exactly the same, 
@@ -63,4 +63,17 @@ test_that("model should perform a reasonable MLP prediction on a toy problem wit
   fit <- fitNetwork(g, input.table = dplyr::select(system, I1, I2), 
                     output.table = dplyr::select(system, AND), verbose = T)
   expect_equal(unlist(V(fit)["AND"]$output.signal), unlist(V(fit)["AND"]$observed), tolerance = .1)
+})
+
+test_that("multi-layer model has less loss than nls given it has more parameters.", {
+  long_test(option)
+  set.seed(30)
+  g_structure <- mlp_graph(c("age", "fare"), "survived", c(4, 3))
+  g_no_pen <- {fitNetwork(g_structure, input.table = dplyr::select(titan, age, fare), 
+     output.table = dplyr::select(titan, survived), epsilon = .01, verbose = T)}
+  g_pen <- {fitNetwork(g_structure, input.table = dplyr::select(titan, age, fare), 
+     output.table = dplyr::select(titan, survived), penalty = .05, epsilon = .01, verbose = T)}
+  
+  
+  expect_less_than(get_deviance(fit), deviance(nls_fit))
 })

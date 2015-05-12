@@ -120,7 +120,7 @@ initializeWeights <- function(g){
 #' @return A graph with all the attributes needed to fit the neural network model.
 #' 
 #' @export
-initializeGraph <- function(g, input.table, output.table, activation=logistic, 
+initializeGraph <- function(g, input.table, output.table, penalty = 0, activation=logistic, 
                             activation.prime=logistic_prime, model=NULL, min.max.constraints=NULL){
   if(length(
     intersect(list.graph.attributes(g), 
@@ -132,7 +132,8 @@ initializeGraph <- function(g, input.table, output.table, activation=logistic,
   if(!is.null(model)){
     if(!(model %in% c("glmnet"))) stop("Only working with glmnet.")
     g$model <- model
-  } 
+  }
+  g$penalty <- penalty
   g$activation <- activation
   g$activation.prime <- activation.prime
   if(!is.null(min.max.constraints)) names(min.max.constraints) <- c("min", "max")
@@ -195,11 +196,23 @@ fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100, verbose=F){
 
 #' Fit a Neural Network on a Graph Structure
 #' 
+#' Initializes a graph into a signal graph and then fits the model.
+#' 
+#' @param g an igraph object, that has not yet been converted into a signal graph
+#' @param input.table data frame where columns correspond to inputs
+#' @param output.table data frame where columns correspond to outputs
+#' @param penalty penalty parameter for penalized lease squares, defaults to 0 for simple least squares
+#' @param epsilon stop optimization when reduction in cost function is less than epsilon
+#' @param max.iter maximum number of iterations of optimization. A signal graph is fit through iteratively
+#' fitting subsets of weights, much like back-propagation.
+#' @param activation the activation function used to map the output of parents to the input of children nodes.
+#' @param activation.prime the derivative of the activation function, used in gradient calculation.
+#' Currently not used in favor of numeric gradients.
 #' @export
-fitNetwork <- function(g, input.table, output.table, epsilon=.05, max.iter=3, 
+fitNetwork <- function(g, input.table, output.table, penalty = 0, epsilon=.05, max.iter=10, 
                        activation=logistic, activation.prime=logistic_prime, 
                        min.max.constraints = NULL, verbose=F){
-  g <- initializeGraph(g, input.table, output.table, 
+  g <- initializeGraph(g, input.table, output.table, penalty = .05, 
                        activation = activation, 
                        activation.prime = activation.prime,
                        min.max.constraints = min.max.constraints)
