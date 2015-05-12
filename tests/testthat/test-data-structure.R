@@ -129,8 +129,8 @@ test_that("test that if the updated status of intercepts/biases and input nodes 
     rescale_df %$% #Note, everything is rescaled to between 0 and 1
     df
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
-    initializeGraph(input.table = select(titan, age, fare), 
-                    output.table = select(titan, survived))
+    {initializeGraph(., input.table = dplyr::select(titan, age, fare), 
+                    output.table = dplyr::select(titan, survived))}
   V(g)[type == "input"]$updated <- FALSE
   expect_error(fitInitializedNetwork(g,  epsilon = .01, verbose = T), "Inputs or biases had FALSE for updated.")
 })

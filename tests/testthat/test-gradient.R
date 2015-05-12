@@ -38,12 +38,53 @@ titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>
   rescale_df %$% #Note, everything is rescaled to between 0 and 1
   df
 
+
 g <- mlp_graph("age", "survived") %>%
   initializeGraph(input.table = select(titan, age), 
                   output.table = select(titan, survived)) %>%
   {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the intercept, I need to reupdate 
   resetUpdateAttributes %>%
   updateVertices(getDeterminers = iparents, callback = calculateVals)
+
+test_that("doChainRule in layer-free univarite produces logistic_prime(input * weight) * input", {
+  weight <- E(g)[to("survived")]$weight
+  age_out <- V(g)["age"]$output.signal %>% unlist
+  expected <- logistic_prime(weight * age_out) * age_out 
+  chain_rule_output <- doChainRule(g, V(g)["survived"], E(g)[to("survived")])
+  expect_equal(expected, chain_rule_output)
+})
+
+test_that("getGradient in layer-free univarite produces -(Y - f(input)) * logistic_prime(input * weight) * input", {
+  weight <- E(g)[to("survived")]$weight
+  age_out <- V(g)["age"]$output.signal %>% unlist
+  Y <- V(g)["survived"]$observed %>% unlist
+  Y_hat <- V(g)["survived"]$output.signal %>% unlist
+  expected <- sum(-(Y - Y_hat) * logistic_prime(weight * age_out) * age_out)
+  gradient_output <- getGradientFunction(g, V(g)["survived"])(weight) %>% as.numeric
+  expect_equal(expected, gradient_output)
+})
+
+test_that("hand calculation of doChainRule in layer-free multivarite produces same results as package functions", {
+  skip("not doing gradient tests")
+  weights <- E(g)[to("survived")]$weight
+  age_out <- V(g)["age"]$output.signal %>% unlist
+  fare_out <- V(g)["fare"]$output.signal %>% unlist
+  linear_combo <- V(g)[c("age", "fare", "int.3")]$output.signal %>% 
+{do.call("cbind", .)} %>%
+  `%*%`(matrix(weights, ncol = 1))
+expected <- cbind(age_weight = logistic_prime(linear_combo) * age_out, 
+                  fare_weight = logistic_prime(linear_combo) * fare_out,
+                  int.3_weight = logistic_prime(linear_combo))
+chain_rule_output <- sapply(E(g)[to("survived")], doChainRule, g = g, v = V(g)["survived"])
+expect_equal(colSums(expected), colSums(chain_rule_output))
+#######
+Y <- V(g)["survived"]$observed %>% unlist
+Y_hat <- V(g)["survived"]$output.signal %>% unlist
+expected <- apply(chain_rule_output, 2, function(item) -(Y - Y_hat) * item) %>% colSums
+gradient_output <- getGradientFunction(g, V(g)["survived"])(weights) %>% as.numeric
+expect_equal(expected, gradient_output)
+})
+
 
 test_that("gradient zero equals loss minimimum", {
   skip("skipping gradient problems")
@@ -104,6 +145,13 @@ g1 <- get_gate(outputs = "AND", layers = c(3, 2))
 g2 <- mlp_graph(c("age", "fare"), "survived", c(5, 5)) %>%
   initializeGraph(input.table = select(titan, age, fare), 
                   output.table = select(titan, survived))
+
+test_that("doChainRule errors in the case when the vertex value does not depend on the weight", {
+  skip("a bug here but ignoring gradient descent for now")
+  expect_error(doChainRule(g1, v = V(g1)["H21"], e = E(g1)["H11" %->% "H22"]),
+               "\n  You've attempted to find the gradient of a node's output\n         w.r.t an edge weight that that does not affect that output. v: 5 e: 7\n")
+  
+})
 
 test_that("gradient descent yields weight with gradient near 0 when loss is minimized",{
   skip("skipping gradient problems")

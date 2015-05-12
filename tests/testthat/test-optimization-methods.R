@@ -1,4 +1,4 @@
-#Testing and evaluation of technical details related to optimization
+# Testing and evaluation of performance of various optimization techniques
 devtools::load_all("../../R/optimization.R")
 devtools::load_all("../../R/tools.R")
 #devtools::load_all("R/optimization.R")
@@ -68,13 +68,13 @@ g <- mlp_graph(c("age", "fare"), "survived", c(5, 5)) %>%
 test_that("a limited BFGS optimization reduces loss for the output node.", {
   get_loss <- getLossFunction(g, "survived")
   initial_weights <- E(g)[to("survived")]$weight
-  updated_weights <- optim(initial_weights, get_loss, control = list(maxit = 10))$par #Just allowing for 10 iterations
+  updated_weights <- optim(initial_weights, get_loss, control = list(maxit = 30))$par #Just allowing for 10 iterations
   expect_true(get_loss(initial_weights) > get_loss(updated_weights)) 
 })
 
 test_that("a limited BFGS optimization reduces loss for an arbitrary hidden node.", {
   get_loss <- getLossFunction(g, "H11")
   initial_weights <- E(g)[to("H11")]$weight
-  updated_weights <- optim(initial_weights, get_loss, control = list(maxit = 10))$par #Just allowing for 10 iterations
+  updated_weights <- optim(initial_weights, get_loss, control = list(maxit = 30))$par #Just allowing for 10 iterations
   expect_true(get_loss(initial_weights) > get_loss(updated_weights)) 
 })

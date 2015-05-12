@@ -94,14 +94,17 @@ getLoss <- function(g){
   .5 * sum( (observed - prediction) ^ 2)
 }
 
-#' Create a loss function dependent on a given vertex
+#' Closure for generating a least squares loss function for use in optimization
 #' 
-#' This is a closure that creates a loss function that varies given a weight vector.
-#' The weights are weight attributes of incoming edges to the vertex given in the argument.
-#' Thus for a given vertex, you can inspect how varying the weights that determine the vertex affect loss. 
+#' This function is a closure that creates a loss function that takes a weight vector as an argument.
+#' The closure takes a graph vertex as an argument.  The algorithm identifives the incoming edges to the vertex,
+#' then pulls the weights from those edges, constructing a weight vector.  This weight vector is the argument
+#' for the loss function, and is used as the starting values in the optimization. The function calculates squared
+#' error loss by first taking this weight vector input and predicting the outcome variable, then calculating loss
+#' from the predicted and observed values.  
+#' @param g an initialized signal graph
+#' @param v the vertex whose weights will be optimized.
 getLossFunction <- function(g, v){
-  #Creating a temporary graph where new weights for v are added, the values are propagated forward.
-  #And a new prediction is generated
   lossFunction <- function(wts){
     prediction <- getPrediction(g, v, wts)
     observed <- unlist(V(g)[type=="output"]$observed)
@@ -109,6 +112,21 @@ getLossFunction <- function(g, v){
   }
   lossFunction
 } 
+
+#' Closure for generating a penalized least squares loss function for use in optimization
+#' 
+#' This is an extention of the least squares loss function closure to penalized least squares.
+#' 
+#' This function is a closure that creates a loss function that takes a weight vector as an argument.
+#' The closure takes a graph vertex as an argument.  The algorithm identifives the incoming edges to the vertex,
+#' then pulls the weights from those edges, constructing a weight vector.  This weight vector is the argument
+#' for the loss function, and is used as the starting values in the optimization. The function calculates penalized 
+#' squared error loss by first taking this weight vector input and predicting the outcome variable, 
+#' then calculating loss from the predicted and observed values.  
+#' @param g an initialized signal graph
+#' @param v the vertex whose weights will be optimized.
+#' @seealso getLossFunction
+
 
 #' Gradient generating closure
 #' 

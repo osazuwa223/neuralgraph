@@ -41,8 +41,8 @@ test_that("multi-layer model has less loss than nls given it has more parameters
   long_test(option)
   set.seed(30)
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
-    initializeGraph(input.table = select(titan, age, fare), 
-                    output.table = select(titan, survived))
+    {initializeGraph(., input.table = dplyr::select(titan, age, fare), 
+                    output.table = dplyr::select(titan, survived))}
   fit <- fitInitializedNetwork(g,  epsilon = .01, verbose = T)
   nls_fit <-  nls(survived ~ logistic(w0 + w1 * age + w2 * fare), data = titan, 
                   start = as.list(structure(E(g)[to("H11")]$weight, names = c("w1", "w2", "w0"))))
@@ -53,14 +53,14 @@ test_that("model should perform a reasonable MLP prediction on a toy problem wit
   # In the future, expand to multivariate case
   #g <- mlpgraph(c("I1", "I2"), c(3, 2, 4), c("AND", "OR", "NOR"))
   long_test(option)
-  set.seed(30)
+  set.seed(31)
   g <- mlp_graph(c("I1", "I2"), "AND", 2)
   system <- list(I1 = c(1, 0), I2 = c(1, 0)) %>%
     expand.grid %>%
     `names<-`(c("I1", "I2")) %>%
-    mutate(AND = I1 * I2)
+    {dplyr::mutate(., AND = I1 * I2)}
     #mutate(AND = I1 * I2, OR = (I1 + I2 > 0) * 1, NOR = (I1 + I2 == 0) * 1)
-  fit <- fitNetwork(g, input.table = select(system, I1, I2), 
-                    output.table = select(system, AND), verbose = T)
+  fit <- fitNetwork(g, input.table = dplyr::select(system, I1, I2), 
+                    output.table = dplyr::select(system, AND), verbose = T)
   expect_equal(unlist(V(fit)["AND"]$output.signal), unlist(V(fit)["AND"]$observed), tolerance = .1)
 })
