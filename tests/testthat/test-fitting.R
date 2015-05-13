@@ -65,7 +65,7 @@ test_that("model should perform a reasonable MLP prediction on a toy problem wit
   expect_equal(unlist(V(fit)["AND"]$output.signal), unlist(V(fit)["AND"]$observed), tolerance = .1)
 })
 
-test_that("multi-layer model has less loss than nls given it has more parameters.", {
+test_that("penalized least squares has less sum squares of fitted weight than unpenalized.", {
   long_test(option)
   set.seed(30)
   g_structure <- mlp_graph(c("age", "fare"), "survived", c(4, 3))
@@ -73,7 +73,7 @@ test_that("multi-layer model has less loss than nls given it has more parameters
      output.table = dplyr::select(titan, survived), epsilon = .01, verbose = T)}
   g_pen <- {fitNetwork(g_structure, input.table = dplyr::select(titan, age, fare), 
      output.table = dplyr::select(titan, survived), penalty = .05, epsilon = .01, verbose = T)}
-  
-  
-  expect_less_than(get_deviance(fit), deviance(nls_fit))
+  expect_less_than(sum(E(g_pen)$weight^2), sum(E(g_no_pen)$weight^2))  
 })
+
+

@@ -111,7 +111,7 @@ getObjective <- function(initial_graph, v){
     candidate_graph <- getPrediction(initial_graph, v, wts)
     prediction <- unlist(V(candidate_graph)[type=="output"]$output.signal)
     observed <- unlist(V(initial_graph)[type=="output"]$observed)
-    sum((observed - prediction) ^ 2) + initial_graph$penalty * sum(E(g)$weight ^ 2)
+    sum((observed - prediction) ^ 2) + initial_graph$penalty * sum(E(candidate_graph)$weight ^ 2)
   }
   lossFunction
 } 

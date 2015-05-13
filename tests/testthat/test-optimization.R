@@ -24,9 +24,10 @@ g <- mlp_graph("age", "survived") %>%
 
 
 test_that("prediction from logistic function works as expected.", {
+  prediction <- unlist(V(getPrediction(g, V(g)["survived"], .5))[type =="output"]$output.signal)
   logistic(.5 * V(g)["age"]$output.signal[[1]]) %>% # calculation of prediction w/ weight of 5 via logistic function
-  identical(getPrediction(g, V(g)["survived"], .5)) %>%# compared to algorithms generation of prediction
-  expect_true
+    identical(prediction) %>%# compared to algorithms generation of prediction
+    expect_true
 })
 
 ###########################################################################################
