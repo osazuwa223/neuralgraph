@@ -83,14 +83,14 @@ getPrediction <- function(g, v, new_weights){
   if(length(E(prediction.graph)[to(v)]) != length(new_weights)) stop("# of weights doesn't match # of incoming edges.")
   E(prediction.graph)[to(v)]$weight <- new_weights
   prediction.graph <- updateVertices(prediction.graph, getDeterminers = iparents, callback = calculateVals)
-  prediction <- unlist(V(prediction.graph)[type == "output"]$output.signal)
+  prediction <- unlist(V(prediction.graph)[is.observed]$output.signal)
   if(!isValid(prediction)) stop("An error occured in predicting vertex ", v)
   prediction.graph
 }
 
 getLoss <- function(g){
-  observed <- unlist(V(g)[type=="output"]$observed)
-  prediction <- unlist(V(g)[type=="output"]$output.signal)
+  observed <- unlist(V(g)[is.observed]$observed)
+  prediction <- unlist(V(g)[is.observed]$output.signal)
   sum( (observed - prediction) ^ 2)
 }
 
@@ -109,8 +109,8 @@ getObjective <- function(initial_graph, v){
   if(is.null(initial_graph$penalty)) stop("Penalty has not been specified.")
   lossFunction <- function(wts){
     candidate_graph <- getPrediction(initial_graph, v, wts)
-    prediction <- unlist(V(candidate_graph)[type=="output"]$output.signal)
-    observed <- unlist(V(initial_graph)[type=="output"]$observed)
+    prediction <- unlist(V(candidate_graph)[is.observed]$output.signal)
+    observed <- unlist(V(initial_graph)[is.observed]$observed)
     sum((observed - prediction) ^ 2) + initial_graph$penalty * sum(E(candidate_graph)$weight ^ 2)
   }
   lossFunction
@@ -131,7 +131,7 @@ getGradientFunction <- function(g, v){
   v.incoming.edges <- E(g)[to(v)]
   edge.names <- paste(v.incoming.edges)
   incoming.edge.count <- length(v.incoming.edges)
-  output.node <- V(g)[type=="output"]
+  output.node <- V(g)[is.observed]
   gradientFunction <- function(wts){
     #Calculates the gradient for a set of weights using the doChainRule function
     prediction <- getPrediction(g, v, wts)

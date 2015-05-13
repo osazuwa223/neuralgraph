@@ -36,8 +36,7 @@ get_fitted <- function(g){
 #' @seealso get_fitted
 #' @export
 recover_design <- function(g){
-  c(V(g)[type == "input"]$output.signal, 
-    V(g)[type == "output"]$observed) %>%
+  V(g)[is.observed]$observed %>%
     data.frame %>% 
     `names<-`(c(V(g)[type == "input"]$name, V(g)[type == "output"]$name)) # Put into a data frme
 }

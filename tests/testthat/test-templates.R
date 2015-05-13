@@ -4,7 +4,7 @@ context("templates for commmonly used signal graph models")
 test_that("get_gate with all outputs works as expected", {
   gates <- c("AND", "OR", "NAND", "NOR", "XOR", "XNOR") 
   g <- get_gate(layers = c(2, 3))
-  V(g)[type %in% c("input", "output")]$name %>%
+  V(g)[is.observed]$name %>%
     setdiff(c(gates, "I1", "I2")) %>%
     {length(.) == 0 } %>%
     expect_true  
@@ -13,7 +13,7 @@ test_that("get_gate with all outputs works as expected", {
 test_that("get_gate with partial outputs works as expected", {
   gates <- c("AND", "NAND", "XNOR") 
   g <- get_gate(outputs = gates, layers = c(2, 3))
-  V(g)[type %in% c("input", "output")]$name %>%
+  V(g)[is.observed]$name %>%
     setdiff(c(gates, "I1", "I2")) %>%
     {length(.) == 0 } %>%
     expect_true  

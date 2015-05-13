@@ -2,7 +2,7 @@
 #' 
 #' @examples
 #' g <- get_gate()
-#' isValid(unlist(V(g)[type == "output"]$observed))
+#' isValid(unlist(V(g)[is.observed]$observed))
 isValid <- function(item){
   valid <- TRUE
   if(any(is.na(item))) valid <- FALSE
@@ -29,7 +29,9 @@ calculateVals <- function(g, v.index){
   weights <- matrix(E(g)[to(v)]$weight, ncol=1) # Create a verticle weight vector
   linear.combination <- as.numeric(parent.val.mat %*% weights) # Calculate the linear combination and convert to numeric
   V(g)[v]$input.signal <- list(linear.combination) # Add it to input signal attribute
-  V(g)[v]$f.prime.input <- list(g$activation.prime(linear.combination)) # Apply f prime and add to the f prime input signal attribute
+  if(!is.null(g$activation.prime)){
+    V(g)[v]$f.prime.input <- list(g$activation.prime(linear.combination)) # Apply f prime and add to the f prime input signal attribute
+  }
   output <- g$activation(linear.combination) # apply activation function and add it to activation function attribute
   V(g)[v]$output.signal <- list(output)
   V(g)[v]$output.signal %>% unlist %>% {!isValid(.)} %>% `if`(stop("When calculating values of vertex ", v.index, " there were NA, infinite, or otherwise invalid values."))
@@ -43,13 +45,13 @@ calculateVals <- function(g, v.index){
 #' @param g a model
 #' @return A model with updated attributes reset to FALSE
 resetUpdateAttributes <- function(g){
-  v_updated <- V(g)[type %in% c("input", "intercept")]$updated
+  v_updated <- V(g)[V(g)$is.root]$updated
   if(!is.null(v_updated)){
     if(any(!(v_updated))) stop("Inputs or biases had FALSE for updated.")
   }
   V(g)$updated <- FALSE
   E(g)$updated <- FALSE
-  V(g)[type %in% c("input", "intercept")]$updated <- TRUE
+  V(g)[V(g)$is.root]$updated <- TRUE
   g
 }
 
@@ -58,15 +60,15 @@ resetUpdateAttributes <- function(g){
 #' If intercepts (biases) already exist in the graph, no intercepts are added.
 addInterceptNodes <- function(g){
   # If intercepts already exist, do nothing
-  if("intercept" %in% V(g)$type) return(g)
-  non.input.nodes <- V(g)[inDegree(g, V(g)) != 0]
+  if(any(V(g)$is.bias)) return(g)
+  non.root.nodes <- V(g)[inDegree(g, V(g)) != 0]
   g.new <- g
-  for(v in non.input.nodes){
+  for(v in non.root.nodes){
     v <- as.numeric(v)
     intercept.name <- paste("int", v, sep=".")
     g.new <- g.new + intercept.name #Add the intercept to the graph
     g.new <- initializeVertexVectors(g.new, intercept.name) #Having added the intercept, give it the correct properties
-    V(g.new)[intercept.name]$type <- "intercept" #Label the intercept as 'intercept'
+    V(g.new)[intercept.name]$is.bias <- TRUE #Label the intercept as 'intercept'
     V(g.new)[intercept.name]$output.signal <- list(rep(1, g$n)) #Give the value of 1
     g.new <- g.new + igraph::edge(intercept.name, V(g)[v]$name)
   }
@@ -121,7 +123,7 @@ initializeWeights <- function(g){
 #' 
 #' @export
 initializeGraph <- function(g, input.table, output.table, penalty = 0, activation=logistic, 
-                            activation.prime=logistic_prime, model=NULL, min.max.constraints=NULL){
+                            activation.prime=logistic_prime,  min.max.constraints=NULL){
   if(length(
     intersect(list.graph.attributes(g), 
                       c("activation", "activation.prime", 
@@ -129,24 +131,19 @@ initializeGraph <- function(g, input.table, output.table, penalty = 0, activatio
             ) > 1 ){
     stop("This graph structure seems to have already been updated.")
   }
-  if(!is.null(model)){
-    if(!(model %in% c("glmnet"))) stop("Only working with glmnet.")
-    g$model <- model
-  }
   g$penalty <- penalty
   g$activation <- activation
   g$activation.prime <- activation.prime
   if(!is.null(min.max.constraints)) names(min.max.constraints) <- c("min", "max")
   g$min.max.constraints <- min.max.constraints 
   g$n <- nrow(output.table)
-  if(!is.null(V(g)$type)) stop("Graph vertices already have a type attribute.")
-  V(g)$type <- "middle"
-  V(g)[names(input.table)]$type <- "input"
-  V(g)[names(output.table)]$type <- "output"
+  V(g)$is.bias <- FALSE
   for(v in V(g)){
     g <- initializeVertexVectors(g, v)
   }
   g <- addInterceptNodes(g)
+  V(g)$is.root <- FALSE
+  V(g)[get_roots(g)]$is.root <- TRUE
   g <- resetUpdateAttributes(g)
   for(input in names(input.table)){
     V(g)[input]$output.signal <- list(input.table[, input])
@@ -159,8 +156,6 @@ initializeGraph <- function(g, input.table, output.table, penalty = 0, activatio
   g <- nameEdges(g)
   #initialize weights
   g <- initializeWeights(g)
-  ##V(g)$intercept <- runif(vcount(g))
-  ##V(g)[type == "input"]$intercept <- NA
   g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
   g
 }
@@ -229,8 +224,8 @@ newDataUpdate <- function(g, input.table){
 
 #' Get a data frame of output signals   
 getDF <- function(g){
-  output <- do.call(data.frame, V(g)[type != "intercept"]$output.signal)
-  names(output) <- paste(V(g)[type != "intercept"])
+  output <- do.call(data.frame, V(g)[!is.bias]$output.signal)
+  names(output) <- paste(V(g)[is.bias])
   output
 }
 
@@ -239,7 +234,7 @@ getDependentEdges <- function(g, e){
   e <- E(g)[ e]
   v_trg_name <- get.edgelist(g)[e, 2]
   v.trg <- V(g)[v_trg_name] %>% as.numeric
-  output.v <- V(g)[type == "output"] %>% as.numeric
+  output.v <- V(g)[is.observed] %>% as.numeric
   dependent.edges <- NULL
   if(!(v.trg == output.v)){
     if(output.v %in% ichildren(g, v.trg)) {

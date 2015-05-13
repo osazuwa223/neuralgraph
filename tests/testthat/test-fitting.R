@@ -19,8 +19,8 @@ the model results of fitting the model should be a graph with 0 error and unchan
   g <- initializeGraph(g, input.table = input.df, 
                        output.table = output.df)
   #Set the observed values exactly to the predicted values
-  V(g)[type == "output"]$observed <- V(g)[type == "output"]$output.signal
-  output.df[, paste(outputs)] <- unlist(V(g)[type == "output"]$observed)
+  V(g)[is.observed]$observed <- V(g)[is.observed]$output.signal
+  output.df[, paste(outputs)] <- unlist(V(g)[is.observed]$observed)
   # After fitting I expect no changes
   g2 <- fitInitializedNetwork(g, .05, 3)
   # The difference between predicted and observed should still be 0

@@ -26,7 +26,7 @@ get_gate <- function(outputs = "all", layers=NULL){
     initializeGraph(logic_gates[, c("I1", "I2")], logic_gates[, gates])
   if(!identical(outputs, "all")){
     output_nodes <- V(g)[name %in% outputs]
-    exclusion_nodes <- V(g)[type == "output"]  %>% setdiff(output_nodes)
+    exclusion_nodes <- V(g)[is.observed]  %>% setdiff(output_nodes)
     nuissance_intercepts <- exclusion_nodes %>% # Find the intercepts for the outputs that will be excluded
       lapply(iparents, g=g) %>%
       unlist %>%

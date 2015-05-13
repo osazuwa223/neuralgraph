@@ -48,7 +48,7 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
       V(g)[1]$input.signal[[1]],
       V(g)[1]$f.prime.input[[1]],
       V(g)[1]$output.signal[[1]],
-      V(g)[type == "output"]$observed[[1]]
+      V(g)[is.observed]$observed[[1]]
     ), 
     function(item){
       (length(item) > 0) %>%
@@ -87,7 +87,7 @@ test_that("fitNetwork returns a graph structure", {
 
 test_that("after the weights of a given vertex has changed, the prediction should change",{
   g <- get_gate("AND")
-  original <- V(g)[type=="output"]$output.signal %>% unlist
+  original <- V(g)[is.observed]$output.signal %>% unlist
   updated <- getPrediction(g, V(g)["AND"], runif(3))
   expect_true(!identical(original, updated))
 })
@@ -106,7 +106,7 @@ test_that("prediction should never produce NA or other invalid values, it should
                        output.table = output.df)
   g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
   #Every thing that is not an input or an intercept should work.
-  V(g)[!(type %in% c("input", "intercept"))]$output.signal %>% lapply(isValid) %>% lapply(expect_true)
+  V(g)[!is.bias]$output.signal %>% lapply(isValid) %>% lapply(expect_true)
 })
 
 test_that("after a pass at fitting, all edges have been traversed.", {
@@ -120,7 +120,7 @@ test_that("after a pass at fitting, all edges have been traversed.", {
     expect_true
 })
 
-test_that("test that if the updated status of intercepts/biases and input nodes ever change, an error is thrown", {
+test_that("test that if the updated status of intercepts/roots and input nodes ever change, an error is thrown", {
   long_test(option)
   data(titanic3)
   titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not worrying about NA vals
@@ -131,6 +131,6 @@ test_that("test that if the updated status of intercepts/biases and input nodes 
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
     {initializeGraph(., input.table = dplyr::select(titan, age, fare), 
                     output.table = dplyr::select(titan, survived))}
-  V(g)[type == "input"]$updated <- FALSE
+  V(g)[is.root]$updated <- FALSE
   expect_error(fitInitializedNetwork(g,  epsilon = .01, verbose = T), "Inputs or biases had FALSE for updated.")
 })

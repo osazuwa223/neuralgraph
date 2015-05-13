@@ -5,5 +5,5 @@
 #' @param g, a fitted signal graph model
 #' @export
 get_deviance <- function(g){
-  sum((unlist(V(g)[type == "output"]$output.signal) - unlist(V(g)[type == "output"]$observed) )^2)
+  sum((unlist(V(g)[is.observed]$output.signal) - unlist(V(g)[is.observed]$observed) )^2)
 }
