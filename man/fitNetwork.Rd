@@ -2,32 +2,34 @@
 % Please edit documentation in R/modelfitting.R
 \name{fitNetwork}
 \alias{fitNetwork}
-\title{Fit a Neural Network on a Graph Structure}
+\title{Fit a Signalgraph model}
 \usage{
-fitNetwork(g, input.table, output.table, penalty = 0, epsilon = 0.05,
-  max.iter = 10, activation = logistic, activation.prime = logistic_prime,
-  min.max.constraints = NULL, verbose = F)
+fitNetwork(g, data, graph_attr, epsilon = 0.001, max.iter = 100,
+  verbose = FALSE)
 }
 \arguments{
-\item{g}{an igraph object, that has not yet been converted into a signal graph}
+\item{g}{igraph object. The vertices must be named.}
 
-\item{input.table}{data frame where columns correspond to inputs}
+\item{data}{a data frame. All of the names in the data from must match a vertex name.}
 
-\item{output.table}{data frame where columns correspond to outputs}
+\item{graph_attr}{list of graph attributes.  Graph attributes include:
+\itemize{
+ \item{penalty}{penalized least squares error penalty parameter value}
+ \item{activation}{the activation function (this actually is an R function), defaults to logistic.}
+ \item{activation.prime}{The derivative fo the activation function, used in gradient calculation. Defaults to NULL}
+ \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
+ }}
 
-\item{penalty}{penalty parameter for penalized lease squares, defaults to 0 for simple least squares}
+\item{epsilon}{when means square area falls below epsilon, stop}
 
-\item{epsilon}{stop optimization when reduction in cost function is less than epsilon}
+\item{max.iter}{maximum number of iterations}
 
-\item{max.iter}{maximum number of iterations of optimization. A signal graph is fit through iteratively
-fitting subsets of weights, much like back-propagation.}
-
-\item{activation}{the activation function used to map the output of parents to the input of children nodes.}
-
-\item{activation.prime}{the derivative of the activation function, used in gradient calculation.
-Currently not used in favor of numeric gradients.}
+\item{verbose}{if TRUE print messages generated during optimization}
+}
+\value{
+A fitted signalgraph object.
 }
 \description{
-Initializes a graph into a signal graph and then fits the model.
+Initializes a graph into a signalgraph then fits the model.
 }
 

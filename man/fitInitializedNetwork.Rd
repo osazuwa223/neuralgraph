@@ -6,10 +6,16 @@
 \usage{
 fitInitializedNetwork(g, epsilon = 0.001, max.iter = 100, verbose = F)
 }
+\arguments{
+\item{g}{an igraph object initialized to an unfit signalgraph object}
+
+\item{epsilon}{when means square area falls below epsilon, stop}
+
+\item{max.iter}{maximum number of iterations}
+
+\item{verbose}{if TRUE print messages generated during optimization}
+}
 \description{
-g an initialized graph
-epsilon when means square area falls below epsilon, stop
-max.iter maximum number of iterations
-verbose if TRUE print messages generated during optimization
+Fit an initialized network
 }
 

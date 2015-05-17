@@ -19,7 +19,7 @@ a vector corresponding to the derivative
 \description{
 The getGradientFunction closure creates a gradient function specific to a given vertex.
 It takes as an argument the weights corresponding to the incoming parents of that vertex.
-When this weight vector is varied, the predictions on the graphs's outputs change, and thus
+When this weight vector is varied, the predictions on the observed vertices change, and thus
 the cost function output changes.  The gradient function captures that rate of change.  It relies
 on back-propagation, calculating the rates of change for every downstream node that is affected
 by changing the weight vector.  This function does that back-propagation calculation for each

@@ -13,7 +13,7 @@ getLinearCombination <- function(wts, model.mat) as.numeric(model.mat %*% wts)
 #' 
 #' The getGradientFunction closure creates a gradient function specific to a given vertex.
 #' It takes as an argument the weights corresponding to the incoming parents of that vertex.
-#' When this weight vector is varied, the predictions on the graphs's outputs change, and thus
+#' When this weight vector is varied, the predictions on the observed vertices change, and thus
 #' the cost function output changes.  The gradient function captures that rate of change.  It relies 
 #' on back-propagation, calculating the rates of change for every downstream node that is affected
 #' by changing the weight vector.  This function does that back-propagation calculation for each
@@ -29,8 +29,8 @@ doChainRule <- function(g, v, e){
   if(v == e.src) stop("The chainrule has gone back too far, v: ", v, " e: ", e)
   e.trg <- getEdgeVertex(g, e, "to") #Grab the target vertex
   if(!(e.trg %in%  v || isBDownstreamOfA(g, a = e.trg, b = v))){
-    stop("You've attempted to find the gradient of a node's output
-         w.r.t an edge weight that that does not affect that output. v: ", v, " e: ", e)  
+    stop("You've attempted to find the gradient of a node's output signal
+         w.r.t an edge weight that that does not affect that output signal. v: ", v, " e: ", e)  
   }
   f.prime.input <- unlist(V(g)[v]$f.prime.input)
   #Next check that the edge is an incoming edge to v
@@ -84,7 +84,7 @@ getPrediction <- function(g, v, new_weights){
   E(prediction.graph)[to(v)]$weight <- new_weights
   prediction.graph <- updateVertices(prediction.graph, getDeterminers = iparents, callback = calculateVals)
   prediction <- unlist(V(prediction.graph)[is.observed]$output.signal)
-  if(!isValid(prediction)) stop("An error occured in predicting vertex ", v)
+  if(!isValidV(prediction)) stop("An error occured in predicting vertex ", v)
   prediction.graph
 }
 
@@ -131,16 +131,16 @@ getGradientFunction <- function(g, v){
   v.incoming.edges <- E(g)[to(v)]
   edge.names <- paste(v.incoming.edges)
   incoming.edge.count <- length(v.incoming.edges)
-  output.node <- V(g)[is.observed]
+  v.observed <- V(g)[is.observed]
   gradientFunction <- function(wts){
     #Calculates the gradient for a set of weights using the doChainRule function
     prediction <- getPrediction(g, v, wts)
-    observed <- unlist(output.node$observed)
+    observed <- unlist(v.observed$observed)
     loss.function.derivative <- -2 * (observed - prediction) 
     chain.rule.output <- matrix(NA, nrow = g$n, ncol = incoming.edge.count, dimnames = list(NULL, edge.names))
     for(e.index in v.incoming.edges){
       e <- E(g)[e.index]
-      chain.rule.output[, paste(e)] <- doChainRule(g, output.node, e)
+      chain.rule.output[, paste(e)] <- doChainRule(g, v.observed, e)
     }
     gradient.output <- colSums(
       apply(chain.rule.output, 2, function(chain.rule.result){

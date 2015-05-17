@@ -34,4 +34,18 @@ get_gate <- function(outputs = "all", layers=NULL){
     g <- igraph::induced.subgraph(g, setdiff(V(g), c(exclusion_nodes, nuissance_intercepts)))
   }
   g
-} 
+}
+
+#' 
+#' 
+random_sg <- function(k, n){
+  generateMultiConnectedDAG(k) %>% nameVertices
+  roots <- V(g)[get_roots(g)]$name 
+  leaves <- V(g)[get_leaves(g)]$name
+  sim_data <- c(lapply(roots, function(root) runif(n)), 
+                lapply(leaves, function(leaf) rep(NA, n))) %>%
+    `names<-`(c(roots, leaves)) %>%
+    data.frame
+  # Initialize the graph, os the output.signals are all there.
+  g <- initializeGraph(g, data = sim_data)
+}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/tools.R
 \name{recover_design}
 \alias{recover_design}
-\title{Pull observed data for the inputs and outputs of a signal graph model into a data frame}
+\title{Pull observed data from nodes in a signalgraph boject into a data frame}
 \usage{
 recover_design(g)
 }
@@ -13,7 +13,7 @@ recover_design(g)
 a data frame, essentially the design matrix.
 }
 \description{
-Pull the observed data (AKA examples) for the input and output vertices of a signal graph model into a data frame.
+Pull the observed data (AKA examples) for the observed vertices in a signal graph model into a data frame.
 }
 \seealso{
 get_fitted

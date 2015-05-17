@@ -4,30 +4,42 @@ option <- FALSE
 #devtools::load_all("R/optimization.R")
 context("Signal graph data structure")
 
+test_that("an error is thrown if the input graph does not have named vertices", {})
+test_that("an error is thrown if the input data is not a named data frame or list", {})
+
+
+test_that("signal graph objects have vertex attributes 'is.observed', 'is.root', 'is.leaf', and 'is.bias'", {
+  sg_list <- list(gate = get_gate(layers = c(2, 3)), random = random_sg(4, 100))
+  attribs <- c("is.observed", "is.root", "is.leaf", "is.bias")
+  lapply(sg_list, function(g){
+    expect_true(all(attribs %in% list.vertex.attributes(g)))
+  })
+})
+
+test_that("if there are variables in the data that are not named nodes in the graph, an error is thrown",{
+  
+  
+})
+#is.observed, - 
+#is.root, -input signal is null
+#is.leaf leaves must be observed
+#is.bias,
+
+test_that("the biases are FALSE for is.observed, TRUE for is.bias, and TRUE for is.root.", {
+  
+})
+
+test_that("", {
+  
+})
+
 test_that("initializeGraph returns a graph structure ready for fitting.", {
-  set.seed(21)
-  g <- generateMultiConnectedDAG(5)
-  inputs <- c("2", "3")
-  outputs <- c("4")
-  input.table <- as.data.frame(matrix(runif(1000 * 2), ncol = 2,
-                                      dimnames = list(NULL, inputs)))
-  names(input.table) <- inputs
-  output.table <- input.table %>%
-    as.matrix %>% 
-    {. %*% matrix(c(1.7, .8), ncol = 1)} %>%
-    {(function(x) x / (1 + x))(.)} %>%
-    data.frame %>%
-    `names<-`("4")
-  g <- initializeGraph(g, input.table, output.table, 
-                       activation = logistic,
-                       activation.prime = logistic_prime,
-                       min.max.constraints = c(min = -Inf, max = Inf))
+  set.seed(21)  
+  g <- random_sg(4, 5) # This generates a graph, and calls 'initializeGraph in the final step.
   # Fails if you initialize twice
+  g_data <- recover_design(g)
   expect_error(
-    initializeGraph(g, input.table, output.table,
-                    activation = logistic, 
-                    activation.prime = logistic_prime,
-                    min.max.constraints = c(min = -Inf, max = Inf)),
+    initializeGraph(g, g_data),
     "This graph structure seems to have already been updated."
   )
   # Need weight, name, and updated edge attributes.
@@ -64,23 +76,9 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
 test_that("fitNetwork returns a graph structure", {
   long_test(option)
   set.seed(21)
-  g <- generateMultiConnectedDAG(5)
-  inputs <- c("2", "3")
-  outputs <- c("4")
-  input.table <- as.data.frame(matrix(runif(1000 * 2), ncol = 2,
-                                      dimnames = list(NULL, inputs)))
-  names(input.table) <- inputs
-  output.table <- input.table %>%
-    as.matrix %>% 
-    {. %*% matrix(c(1.7, .8), ncol = 1)} %>%
-    {(function(x) x / (1 + x))(.)} %>%
-    data.frame %>%
-    `names<-`("4")
-  g <- fitNetwork(g, input.table, output.table, 
-                  activation = logistic,
-                  activation.prime = logistic_prime,
-                  min.max.constraints = c(min = -Inf, max = Inf),
-                  verbose=T)
+  g <- random_sg(3, 2)
+  observed <- recover_design(g)
+  g <- fitNetwork(g, observed, verbose=T)
   expect_true(class(g) == "igraph")
 })
 
@@ -93,20 +91,11 @@ test_that("after the weights of a given vertex has changed, the prediction shoul
 })
 
 test_that("prediction should never produce NA or other invalid values, it should rather error out", {
-  g <- generateMultiConnectedDAG(8)
-  inputs <- V(g)[igraph::degree(g, mode="in") == 0]
-  outputs <- V(g)[igraph::degree(g, mode="out") == 0]
-  input.val.list <- lapply(inputs, function(input) runif(1000))
-  input.df <- data.frame(input.val.list)
-  names(input.df) <- inputs
-  output.list <- lapply(outputs, function(output) rep(NA, 1000))
-  output.df <- data.frame(output.list)
-  names(output.df) <- outputs
-  g <- initializeGraph(g, input.table = input.df, 
-                       output.table = output.df)
+  g <- random_sg(3, 2)
+  observed <- recover_design(g)
   g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
   #Every thing that is not an input or an intercept should work.
-  V(g)[!is.bias]$output.signal %>% lapply(isValid) %>% lapply(expect_true)
+  V(g)[!is.bias]$output.signal %>% lapply(isValidV) %>% lapply(expect_true)
 })
 
 test_that("after a pass at fitting, all edges have been traversed.", {
@@ -129,8 +118,7 @@ test_that("test that if the updated status of intercepts/roots and input nodes e
     rescale_df %$% #Note, everything is rescaled to between 0 and 1
     df
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
-    {initializeGraph(., input.table = dplyr::select(titan, age, fare), 
-                    output.table = dplyr::select(titan, survived))}
+    {initializeGraph(., data = dplyr::select(titan, age, fare, survived))}
   V(g)[is.root]$updated <- FALSE
   expect_error(fitInitializedNetwork(g,  epsilon = .01, verbose = T), "Inputs or biases had FALSE for updated.")
 })

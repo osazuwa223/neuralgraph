@@ -3,21 +3,14 @@ devtools::load_all("../../R/tools.R")
 option <- FALSE
 context("Models gets reasonable fits")
 
-test_that("in an initialized model where the predicted and observed output are exactly the same, 
-the model results of fitting the model should be a graph with 0 error and unchanged weights.", {
+test_that("in an initialized neural net style model where the predicted and observed output are 
+          exactly the same, the model results of fitting the model should be a graph with 0 error 
+          and unchanged weights.", {
   long_test(option)
   set.seed(30)
-  g <- generateMultiConnectedDAG(8)
-  inputs <- V(g)[igraph::degree(g, mode="in") == 0]
-  outputs <- V(g)[igraph::degree(g, mode="out") == 0]
-  input.val.list <- lapply(inputs, function(input) runif(1000))
-  input.df <- data.frame(input.val.list)
-  names(input.df) <- inputs
-  output.list <- lapply(outputs, function(output) rep(NA, 1000))
-  output.df <- data.frame(output.list)
-  names(output.df) <- outputs
-  g <- initializeGraph(g, input.table = input.df, 
-                       output.table = output.df)
+  g <- random_sg(8)
+    
+
   #Set the observed values exactly to the predicted values
   V(g)[is.observed]$observed <- V(g)[is.observed]$output.signal
   output.df[, paste(outputs)] <- unlist(V(g)[is.observed]$observed)
@@ -41,8 +34,7 @@ test_that("multi-layer model has less loss than nls given it has more parameters
   long_test(option)
   set.seed(30)
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
-    {initializeGraph(., input.table = dplyr::select(titan, age, fare), 
-                    output.table = dplyr::select(titan, survived))}
+    {initializeGraph(., data = dplyr::select(titan, age, fare, survived))}
   fit <- fitInitializedNetwork(g,  epsilon = .01, verbose = T)
   nls_fit <-  nls(survived ~ logistic(w0 + w1 * age + w2 * fare), data = titan, 
                   start = as.list(structure(E(g)[to("H11")]$weight, names = c("w1", "w2", "w0"))))

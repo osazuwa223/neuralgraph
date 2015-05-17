@@ -2,7 +2,7 @@
 % Please edit documentation in R/tools.R
 \name{get_fitted}
 \alias{get_fitted}
-\title{Pull fitted values from a signal graph into a data frame}
+\title{Get a data frame of output signals}
 \usage{
 get_fitted(g)
 }
@@ -13,7 +13,7 @@ get_fitted(g)
 a data frame containing fitted values
 }
 \description{
-Pull fitted values from a signal graph into a data frame
+Get a data frame of output signals
 }
 \seealso{
 recover_design
