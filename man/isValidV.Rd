@@ -2,11 +2,13 @@
 % Please edit documentation in R/data-structure.R
 \name{isValidV}
 \alias{isValidV}
-\title{Checks the validity of a numeric vertex attribute}
+\title{checkSignalGraph(g)
+Checks the validity of a numeric vertex attribute}
 \usage{
 isValidV(item)
 }
 \description{
+checkSignalGraph(g)
 Checks the validity of a numeric vertex attribute
 }
 \examples{

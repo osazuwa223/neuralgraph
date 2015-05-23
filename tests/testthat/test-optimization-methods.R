@@ -18,21 +18,21 @@ titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>
 g <- mlp_graph("age", "survived") %>%
   initializeGraph(input.table = select(titan, age), 
                   output.table = select(titan, survived)) %>%
-  {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the intercept, I need to reupdate 
+  {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
-  updateVertices(getDeterminers = iparents, callback = calculateVals)
+  updateSignals
 
 
 ###########################################################################################
 # Tests of optimization of logistic activation :
 #   * logistic regression of 'survived' vs 'age' in the Titanic3 data
-#   * no intercept -- one dimensional weight
+#   * no bias -- one dimensional weight
 #   * no hidden layers -- straight forward logistic regression on squared error loss
 #   * loss function is convex in the weight
 #   * age is rescaled to between 0 and 1
 
 
-test_that("in single variate no intercept case, pure loss minimization gets the same results as nls", {
+test_that("in single variate no bias case, pure loss minimization gets the same results as nls", {
   expected <- nls(survived ~ logistic(age * w), data = titan, 
                   start = list(w = E(g)[to("survived")]$weight)) %>%
     coef %>% as.numeric

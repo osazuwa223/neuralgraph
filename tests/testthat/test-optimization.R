@@ -14,13 +14,13 @@ titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>
   df
 
 ###########################################################################################
-# Univariate no intercept, no hidden layer case
+# Univariate no bias, no hidden layer case
 g <- mlp_graph("age", "survived") %>%
   initializeGraph(input.table = select(titan, age), 
                   output.table = select(titan, survived)) %>%
-  {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the intercept, I need to reupdate 
+  {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
-  updateVertices(getDeterminers = iparents, callback = calculateVals)
+  updateSignals
 
 
 test_that("prediction from logistic function works as expected.", {
@@ -43,7 +43,7 @@ test_that("prediction from logistic function works as expected.", {
     as.numeric
   g <- resetUpdateAttributes(g)
   E(g)[to("H11")]$weight <- c(-.5, -.5, -.5)
-  g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
+  updateSignals
   logistic(linear_combination) %>% # calculation of prediction w/ weight of 5 via logistic function
     identical(unlist(V(g)["H11"]$output.signal)) %>%# compared to algorithms generation of prediction
     expect_true

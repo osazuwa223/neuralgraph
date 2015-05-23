@@ -42,9 +42,9 @@ titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>
 g <- mlp_graph("age", "survived") %>%
   initializeGraph(input.table = select(titan, age), 
                   output.table = select(titan, survived)) %>%
-  {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the intercept, I need to reupdate 
+  {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
-  updateVertices(getDeterminers = iparents, callback = calculateVals)
+  updateSignals
 
 test_that("doChainRule in layer-free univarite produces logistic_prime(input * weight) * input", {
   skip("not doing gradient tests")

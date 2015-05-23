@@ -37,8 +37,8 @@ doChainRule <- function(g, v, e){
   if(e.trg == v){
     output <- unlist(V(g)[e.src]$output.signal) * f.prime.input
   }else{
-    connected.nodes <- V(g)[getConnectingNodes(g, e.trg, v)]
-    varying.parents <- V(g)[intersect(iparents(g, v), connected.nodes)]
+    connected.nodes <- V(g)[lucy::getConnectingNodes(g, e.trg, v)]
+    varying.parents <- V(g)[intersect(lucy::iparents(g, v), connected.nodes)]
     parent.names <- paste(varying.parents)
     v.parents.chain.rule.result <- matrix(NA, nrow = g$n, ncol = length(varying.parents), 
                                           dimnames = list(NULL, parent.names))
@@ -82,16 +82,17 @@ getPrediction <- function(g, v, new_weights){
   if(length(E(prediction.graph)[to(v)]) == 0) stop("Attempted to update incoming edge weights for parentless node.")
   if(length(E(prediction.graph)[to(v)]) != length(new_weights)) stop("# of weights doesn't match # of incoming edges.")
   E(prediction.graph)[to(v)]$weight <- new_weights
-  prediction.graph <- updateVertices(prediction.graph, getDeterminers = iparents, callback = calculateVals)
+  prediction.graph <- updateSignals(prediction.graph)
   prediction <- unlist(V(prediction.graph)[is.observed]$output.signal)
   if(!isValidV(prediction)) stop("An error occured in predicting vertex ", v)
   prediction.graph
 }
 
-getLoss <- function(g){
+getMSE <- function(g){
+  k <- sum(V(g)[is.observed])
   observed <- unlist(V(g)[is.observed]$observed)
   prediction <- unlist(V(g)[is.observed]$output.signal)
-  sum( (observed - prediction) ^ 2)
+  sum((observed - prediction) ^ 2) / g$n / k
 }
 
 #' Closure for generating a penalized least squares loss function for use in optimization
@@ -200,9 +201,20 @@ fitWeightsForNode <- function(g, v){
   g
 }
 
+#' Fit edge weight
+#' 
+#' Adjust the weight for a given edge by minimizing a loss function.  This function takes a signal edge
+#' as its argument.  It identifies the target vertex of the edge, then calls fitWeightsForNode, 
+#' which optimizes the loss function over all incoming edges to that target vertex, rather than just the 
+#' edge argument alone.  Once the weight has been optimized, the updated attribute is set to true.
+#' 
+#' @param g a signalgraph object
+#' @param e an index for the edge in the signalgraph object
+#' @return an updated signalgraph object
+#' @seealso fitWeightsForNode
 fitWeightsForEdgeTarget <- function(g, e){
   old_weight <- E(g)[e]$weight
-  edge.target <- get.edgelist(g)[e, 2]
+  edge.target <- igraph::get.edgelist(g)[e, 2]
   message("Fitting for edge ", E(g)[e]$name)
   g <- fitWeightsForNode(g, edge.target)
   new_weight <- E(g)[e]$weight

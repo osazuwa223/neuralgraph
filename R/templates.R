@@ -27,19 +27,26 @@ get_gate <- function(outputs = "all", layers=NULL){
   if(!identical(outputs, "all")){
     output_nodes <- V(g)[name %in% outputs]
     exclusion_nodes <- V(g)[is.observed]  %>% setdiff(output_nodes)
-    nuissance_intercepts <- exclusion_nodes %>% # Find the intercepts for the outputs that will be excluded
-      lapply(iparents, g=g) %>%
+    nuissance_biases <- exclusion_nodes %>% # Find the biases for the outputs that will be excluded
+      lapply(lucy::iparents, g=g) %>%
       unlist %>%
-      intersect(V(g)[type== "intercept"])
-    g <- igraph::induced.subgraph(g, setdiff(V(g), c(exclusion_nodes, nuissance_intercepts)))
+      intersect(V(g)[type== "bias"])
+    g <- igraph::induced.subgraph(g, setdiff(V(g), c(exclusion_nodes, nuissance_biases)))
   }
   g
 }
 
+#' Generate a random unfit signalgraph object
 #' 
+#' Uses the generateMultiConnectedDAG in the lucy \url{https://github.com/osazuwa223/lucy} package.  
+#' Since the vertices that must have data are the roots and the leaves, (everything in between can be hidden),
+#' then a data frame is simulated for only those nodes.
 #' 
-random_sg <- function(k, n){
-  generateMultiConnectedDAG(k) %>% nameVertices
+#' @param k number of desired vertices
+#' @param n number of desired points in the data
+#' @return an initialized, but unfit (unoptimized) signal graph model
+random_unfit_sg <- function(k, n){
+  lucy::generateMultiConnectedDAG(k) %>% nameVertices
   roots <- V(g)[get_roots(g)]$name 
   leaves <- V(g)[get_leaves(g)]$name
   sim_data <- c(lapply(roots, function(root) runif(n)), 
@@ -48,4 +55,19 @@ random_sg <- function(k, n){
     data.frame
   # Initialize the graph, os the output.signals are all there.
   g <- initializeGraph(g, data = sim_data)
+}
+
+#' Generate a random unfit signalgraph object
+#' 
+#' Uses the generateMultiConnectedDAG in the lucy \url{https://github.com/osazuwa223/lucy} package.  
+#' Since the vertices that must have data are the roots and the leaves, (everything in between can be hidden),
+#' then a data frame is simulated for only those nodes.
+#' 
+#' @param k number of desired vertices
+#' @param n number of desired points in the data
+#' @return a signalgraph model
+random_sg <- function(k, n){
+  g <- random_unfit_sg(k, n) 
+  sim_data <- recover_design(g)
+  fitNetwork(g, sim_data)
 }

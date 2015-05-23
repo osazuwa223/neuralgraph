@@ -8,9 +8,7 @@ test_that("in an initialized neural net style model where the predicted and obse
           and unchanged weights.", {
   long_test(option)
   set.seed(30)
-  g <- random_sg(8)
-    
-
+  g <- random_unfit_sg(8)
   #Set the observed values exactly to the predicted values
   V(g)[is.observed]$observed <- V(g)[is.observed]$output.signal
   output.df[, paste(outputs)] <- unlist(V(g)[is.observed]$observed)

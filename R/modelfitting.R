@@ -1,5 +1,4 @@
-
-#' Calculate the Values of Vertices in Neural Network Model
+#' Calculate the signal propagation in the signalgraph model
 #' 
 #' For a given vertex, the values for the vertex attribute 'input.signal' are calculated as the linear 
 #' combination of outputs with edge weights as weights. 'output.signal' is calculated by applying the activation
@@ -8,40 +7,63 @@
 #' @param g, the graph model
 #' @param v.index, the index of a vertex
 #' @return an updated graph model
-calculateVals <- function(g, v.index){
-  v <- V(g)[v.index]
-  v.parents <- iparents(g, v) # Grab the parents of the index
-  if(length(v.parents) == 0) stop("Attempting apply activation function
-                                  to a node without parents.")
-  parent.val.mat <- do.call("cbind", V(g)[v.parents]$output.signal) # Create a matrix with the parent node output values in the colums
-  weights <- matrix(E(g)[to(v)]$weight, ncol=1) # Create a verticle weight vector
-  linear.combination <- as.numeric(parent.val.mat %*% weights) # Calculate the linear combination and convert to numeric
+calculateVals <- function(g, v.index){ 
+  weight_vector <- matrix(E(g)[to(v)]$weight, ncol=1)
+  linear_combination <- lucy::parents(g, v) %>%
+    ensure_that(length(.) > 0) %>%
+    {do.call("cbind", V(g)[.]$output.signal)} %>%
+    `%*%`(weight_vector) %>% 
+    as.numeric
   V(g)[v]$input.signal <- list(linear.combination) # Add it to input signal attribute
   if(!is.null(g$activation.prime)){
     V(g)[v]$f.prime.input <- list(g$activation.prime(linear.combination)) # Apply f prime and add to the f prime input signal attribute
   }
   output <- g$activation(linear.combination) # apply activation function and add it to activation function attribute
   V(g)[v]$output.signal <- list(output)
-  V(g)[v]$output.signal %>% unlist %>% {!isValidV(.)} %>% `if`(stop("When calculating values of vertex ", v.index, " there were NA, infinite, or otherwise invalid values."))
+  V(g)[v]$output.signal %>% unlist %>% 
+    ensure_that(validateVector(.)
   g
 }
 
+#' Update the 'signal' at each vertex in a signalgraph object
+#' 
+#' Updates the 'output.signal' attribute of each vertex in the signalgraph.  Relies on the 'updateVertices' 
+#' propagation function in the lucy package, using calculateVals as the callback.
+#' @param g a signalgraph object.
+#' @return a signal graph object with updated values for the signal attributes.
+updateSignals <- function(g){
+  updateVertices(getDeterminers = igraph::iparents, callback = calculateVals)
+}
+
+#' Update the weight at each edge in a signalgraph object
+#' 
+#' Updates the 'weight' attribute of each edge in the signalgraph.  Relies on the 'updateedges' 
+#' propagation function in the lucy package, using calculateVals as the callback.
+#' @param g a signalgraph object.
+#' @return a signalgraph object with updated weights.
+updateWeights <- function(g){
+  updateEdges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
+}
+
+
+
 #' Determine the edges in g whose weights impact the optimization of the weight of edge e 
 getDependentEdges <- function(g, e){
-  e <- E(g)[ e]
-  v_trg_name <- get.edgelist(g)[e, 2]
-  v.trg <- V(g)[v_trg_name] %>% as.numeric
-  v.observed <- V(g)[is.observed] %>% as.numeric
+  v_trg <- get.edgelist(g)[e, 2] %>%
+    {V(g)[.]} 
+  v_observed <- V(g)[is.observed]
   dependent.edges <- NULL
-  if(!(v.trg == output.v)){
-    if(v.observed %in% ichildren(g, v.trg)) {
-      dependent.edges <- E(g)[v.trg %->% v.observed]
+  if(!(v_trg == output_v)){
+    if(v_observed %in% ichildren(g, v_trg)) {
+      dependent_edges <- E(g)[v_trg %->% v_observed]
     }else{
-      dependent.edges <- getConnectingEdges(g, v.trg, v.observed)
+      dependent_edges <- getConnectingEdges(g, v_trg, v_observed)
     }
   }
   dependent.edges
 }
+
+
 
 #' Fit an initialized network
 #' 
@@ -49,25 +71,17 @@ getDependentEdges <- function(g, e){
 #' @param epsilon when means square area falls below epsilon, stop
 #' @param max.iter maximum number of iterations
 #' @param verbose if TRUE print messages generated during optimization
-fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100, verbose=F){
-  e <-  getLoss(g)  / g$n 
-  i <- 0
-  test <- TRUE
-  while(i < max.iter){
+fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100){
+  mse <-  getMSE(g)
+  for(i %in% 1:max.iter){
     print(i)
-    g <- resetUpdateAttributes(g)
-    if(verbose){
-      g <- updateEdges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
-    }else{
-      g <- suppressMessages(updateEdges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget))
-    }
-    g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
-    e.new <- 2 *  getLoss(g) / g$n  
-    message("Error: ", round(e.new, 3), "\n")
-    message("Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n")
-    if((e - e.new) < epsilon) return(g)
-    e <- e.new
-    i <- i + 1
+    g <- resetUpdateAttributes(g) %>%
+      updateEdges %>% 
+      updateSignals
+    message("First 3 Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n")
+    mse <- getMSE(g) %T>% # Get the new MSE
+      {message("Mean Squared Error: ", round(., 3), "\n")} %T>% # Message out the error
+      {if((mse - .) < epsilon) return(g)} # Stop if improvement is super small.
   }
   g
 }

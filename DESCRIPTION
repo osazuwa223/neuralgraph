@@ -8,5 +8,6 @@ Description: Signalgraph fits graphical models for signal processing, using well
 License: GPL-2
 Depends: R (>= 2.14),
          lucy,
-         magrittr
+         magrittr,
+         ensurer
 Suggests: testthat

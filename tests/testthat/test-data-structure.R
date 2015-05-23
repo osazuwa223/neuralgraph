@@ -3,11 +3,16 @@ devtools::load_all("../../R/tools.R")
 option <- FALSE
 #devtools::load_all("R/optimization.R")
 context("Signal graph data structure")
-
-test_that("an error is thrown if the input graph does not have named vertices", {})
+test_that("initializeGraph generates a signalgraph with all the desirable attributes", {})
+test_that("initializeEdges provides a graph with 'weight' edge attribute and it the attribute
+          already exists, they should have been changed.")
+test_that("addInterceptNodes creates a new set of vertices that are biases and are roots", {})
+test_that("addDataToVertices and recover_design reverse one another", {})
+test_that("for addDataToVertices an error is thrown if the input graph does not have named vertices", {})
 test_that("an error is thrown if the input data is not a named data frame or list", {})
-
-
+test_that("if a vertex is not in a variable in the data, it becomes a hidden variable", {})
+test_that("initializeGraph returns a signalgraph object", {})
+test_that("resetUpdateAttributes changes updated structure of all nodes EXCEPT root nodes", {})
 test_that("signal graph objects have vertex attributes 'is.observed', 'is.root', 'is.leaf', and 'is.bias'", {
   sg_list <- list(gate = get_gate(layers = c(2, 3)), random = random_sg(4, 100))
   attribs <- c("is.observed", "is.root", "is.leaf", "is.bias")
@@ -15,23 +20,9 @@ test_that("signal graph objects have vertex attributes 'is.observed', 'is.root',
     expect_true(all(attribs %in% list.vertex.attributes(g)))
   })
 })
-
-test_that("if there are variables in the data that are not named nodes in the graph, an error is thrown",{
-  
-  
-})
-#is.observed, - 
-#is.root, -input signal is null
-#is.leaf leaves must be observed
-#is.bias,
-
-test_that("the biases are FALSE for is.observed, TRUE for is.bias, and TRUE for is.root.", {
-  
-})
-
-test_that("", {
-  
-})
+test_that("if there are variables in the data that are not named nodes in the graph, an error is thrown",{})
+test_that("if a vertex is not matched to an item in the data, it is hidden i.e. `is.hidden` returns TRUE.", {})
+test_that("the biases are FALSE for is.observed, TRUE for is.bias, and TRUE for is.root.", {})
 
 test_that("initializeGraph returns a graph structure ready for fitting.", {
   set.seed(21)  
@@ -93,8 +84,8 @@ test_that("after the weights of a given vertex has changed, the prediction shoul
 test_that("prediction should never produce NA or other invalid values, it should rather error out", {
   g <- random_sg(3, 2)
   observed <- recover_design(g)
-  g <- updateVertices(g, getDeterminers = iparents, callback = calculateVals)
-  #Every thing that is not an input or an intercept should work.
+  g <- updateSignals(g)
+  #Every thing that is not an input or an bias should work.
   V(g)[!is.bias]$output.signal %>% lapply(isValidV) %>% lapply(expect_true)
 })
 
@@ -109,7 +100,7 @@ test_that("after a pass at fitting, all edges have been traversed.", {
     expect_true
 })
 
-test_that("test that if the updated status of intercepts/roots and input nodes ever change, an error is thrown", {
+test_that("test that if the updated status of biases/roots and input nodes ever change, an error is thrown", {
   long_test(option)
   data(titanic3)
   titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not worrying about NA vals

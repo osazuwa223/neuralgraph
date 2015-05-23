@@ -2,7 +2,7 @@
 % Please edit documentation in R/data-structure.R
 \name{initializeGraph}
 \alias{initializeGraph}
-\title{Priming an igraph bbject for fitting a signalgraph model}
+\title{Priming an igraph object for fitting a signalgraph model}
 \usage{
 initializeGraph(g, data, graph_attr)
 }
@@ -15,7 +15,7 @@ initializeGraph(g, data, graph_attr)
 \itemize{
  \item{penalty}{penalized least squares error penalty parameter value}
  \item{activation}{the activation function (this actually is an R function), defaults to logistic.}
- \item{activation.prime}{The derivative fo the activation function, used in gradient calculation. Defaults to NULL}
+ \item{activation.prime}{The derivative of the activation function, used in gradient calculation. Defaults to NULL}
  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
  }}
 }
@@ -23,6 +23,14 @@ initializeGraph(g, data, graph_attr)
 A graph with all the attributes needed to fit the neural network model.
 }
 \description{
-Any vertex that does not map to a name in the
+igraph objects have three kinds attributes; graph attributes, edge attributes, and vertex attributes.
+This function builds a signalgraph object from an igraph object using these attributes.  First the
+graph attributes are added, then vertex attributes.  The signal graph model is fit on data frame.
+The name of each variable in the data must match a vertex name in the graph.  The values for a given variable
+are added as a vertex attribute to that vertex.  Next, edge weights are added as edge attributes are added.  Finally,
+the values attributed to the weights are updated given the weights.
+}
+\seealso{
+initializeGraphAttributes, initializeVertices, addDataToVertices, initializeEdges
 }
 

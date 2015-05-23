@@ -6,7 +6,16 @@
 \usage{
 initializeEdges(g)
 }
+\arguments{
+\item{g}{igraph object. The vertices must be named.}
+}
+\value{
+g igraph object
+}
 \description{
-Name and initialize the edges.
+Used in contruction of a signalgraph.  Names and initializes the edges.
+}
+\seealso{
+nameEdges, initializeWeights
 }
 

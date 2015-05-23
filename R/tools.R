@@ -25,7 +25,7 @@ get_fitted <- function(g){
   output
 }
 
-#' Pull observed data from nodes in a signalgraph boject into a data frame
+#' Pull observed data from a signalgraph object
 #' 
 #' Pull the observed data (AKA examples) for the observed vertices in a signal graph model into a data frame.
 #' 
