@@ -2,7 +2,7 @@
 % Please edit documentation in R/tools.R
 \name{recover_design}
 \alias{recover_design}
-\title{Pull observed data from nodes in a signalgraph boject into a data frame}
+\title{Pull observed data from a signalgraph object}
 \usage{
 recover_design(g)
 }

@@ -4,7 +4,7 @@
 \alias{fitInitializedNetwork}
 \title{Fit an initialized network}
 \usage{
-fitInitializedNetwork(g, epsilon = 0.001, max.iter = 100, verbose = F)
+fitInitializedNetwork(g, epsilon = 0.001, max.iter = 100)
 }
 \arguments{
 \item{g}{an igraph object initialized to an unfit signalgraph object}

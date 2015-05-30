@@ -15,7 +15,4 @@ g igraph object
 \description{
 Used in contruction of a signalgraph.  Names and initializes the edges.
 }
-\seealso{
-nameEdges, initializeWeights
-}
 

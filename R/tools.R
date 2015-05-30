@@ -1,3 +1,5 @@
+
+
 #' Rescale the column of a data frame to between 0 and 1
 rescale_df <- function(df){
   observed.list <- lapply(df, function(col){
@@ -20,9 +22,9 @@ rescale_df <- function(df){
 #' @seealso recover_design
 #' @export
 get_fitted <- function(g){
-  output <- do.call(data.frame, V(g)[!is.bias]$output.signal)
-  names(output) <- paste(V(g)[!is.bias])
-  output
+  V(g)[!is.bias]$output.signal %>%
+    data.frame %>% 
+    `names<-`(V(g)[!is.bias]$name)
 }
 
 #' Pull observed data from a signalgraph object
@@ -74,3 +76,23 @@ long_test <- function(option){
     eval(quote(testthat::skip("Skipping time consuming test.")), parent.frame())
   } 
 }
+
+#' Visualize a signal graph object
+#' 
+#' @export
+sg_viz <- function(g, main = NULL, show_biases = TRUE){
+  if(!show_biases)  g <- igraph::induced.subgraph(g, V(g)[!is.bias])
+  col <- structure(rep("white", vcount(g)), names = V(g)$name)
+  col[V(g)$is.observed] <- "light green"
+  col[V(g)$is.hidden] <- "blue"
+  if("is.bias" %in% list.vertex.attributes(g)) col[V(g)$is.bias] <- "grey"
+  node_list <- list(fill = col) 
+  g_out <- g %>% nameVertices %>% # Give vertices names if they do not have nay 
+    igraph.to.graphNEL(.) %>% # convert to a graphNEL
+    {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
+    {graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
+  if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
+  Rgraphviz::renderGraph(g_out) # Render the graph
+  graph::graph.par(list(graph = list(main = ""))) # Reset graph parameters
+}
+

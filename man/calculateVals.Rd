@@ -2,9 +2,9 @@
 % Please edit documentation in R/modelfitting.R
 \name{calculateVals}
 \alias{calculateVals}
-\title{Calculate the Values of Vertices in Neural Network Model}
+\title{Calculate the signal propagation in the signalgraph model}
 \usage{
-calculateVals(g, v.index)
+calculateVals(g, v)
 }
 \arguments{
 \item{g,}{the graph model}

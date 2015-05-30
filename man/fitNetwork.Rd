@@ -4,8 +4,7 @@
 \alias{fitNetwork}
 \title{Fit a Signalgraph model}
 \usage{
-fitNetwork(g, data, graph_attr, epsilon = 0.001, max.iter = 100,
-  verbose = FALSE)
+fitNetwork(g, data, graph_attr, epsilon = 0.001, max.iter = 100)
 }
 \arguments{
 \item{g}{igraph object. The vertices must be named.}

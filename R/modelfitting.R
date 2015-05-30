@@ -7,22 +7,23 @@
 #' @param g, the graph model
 #' @param v.index, the index of a vertex
 #' @return an updated graph model
-calculateVals <- function(g, v.index){ 
+calculateVals <- function(g, v){ 
   weight_vector <- matrix(E(g)[to(v)]$weight, ncol=1)
-  linear_combination <- lucy::parents(g, v) %>%
+  linear_combination <- iparents(g, v) %>%
     ensure_that(length(.) > 0) %>%
-    {do.call("cbind", V(g)[.]$output.signal)} %>%
-    `%*%`(weight_vector) %>% 
-    as.numeric
-  V(g)[v]$input.signal <- list(linear.combination) # Add it to input signal attribute
-  if(!is.null(g$activation.prime)){
-    V(g)[v]$f.prime.input <- list(g$activation.prime(linear.combination)) # Apply f prime and add to the f prime input signal attribute
-  }
-  output <- g$activation(linear.combination) # apply activation function and add it to activation function attribute
-  V(g)[v]$output.signal <- list(output)
-  V(g)[v]$output.signal %>% unlist %>% 
-    ensure_that(validateVector(.)
-  g
+{do.call("cbind", V(g)[.]$output.signal)} %>%
+  `%*%`(weight_vector) %>% 
+  as.numeric %>%
+  ensure_that(checkVector(.))
+V(g)[v]$input.signal <- list(linear_combination) # Add it to input signal attribute
+if(!is.null(g$activation.prime)){
+  V(g)[v]$f.prime.input <- list(g$activation.prime(linear_combination)) # Apply f prime and add to the f prime input signal attribute
+}
+output <- g$activation(linear_combination) # apply activation function and add it to activation function attribute
+V(g)[v]$output.signal <- list(output)
+V(g)[v]$output.signal %>% unlist %>% 
+  ensure_that(checkVector(.))
+g
 }
 
 #' Update the 'signal' at each vertex in a signalgraph object
@@ -32,7 +33,7 @@ calculateVals <- function(g, v.index){
 #' @param g a signalgraph object.
 #' @return a signal graph object with updated values for the signal attributes.
 updateSignals <- function(g){
-  updateVertices(getDeterminers = igraph::iparents, callback = calculateVals)
+  updateVertices(g, getDeterminers = lucy::iparents, callback = calculateVals)
 }
 
 #' Update the weight at each edge in a signalgraph object
@@ -45,25 +46,33 @@ updateWeights <- function(g){
   updateEdges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
 }
 
-
-
-#' Determine the edges in g whose weights impact the optimization of the weight of edge e 
+#' Find edges that affect an edge's optimization
+#' 
+#' When optimizing weights by back-propagation, before optimizing the objective function for a 
+#' given weight, it is necessary to first optimize for all weights that are no paths downstream
+#' from the given weight and upstream of an observed variable.  This function identifies all such 
+#' downstream edges relative an input edge.
+#' 
+#' @param g a signalgraph object
+#' @param e an edge index in the signal graph
+#' @return set of edge indices 
 getDependentEdges <- function(g, e){
-  v_trg <- get.edgelist(g)[e, 2] %>%
-    {V(g)[.]} 
-  v_observed <- V(g)[is.observed]
-  dependent.edges <- NULL
-  if(!(v_trg == output_v)){
-    if(v_observed %in% ichildren(g, v_trg)) {
-      dependent_edges <- E(g)[v_trg %->% v_observed]
-    }else{
-      dependent_edges <- getConnectingEdges(g, v_trg, v_observed)
-    }
+  # Find the target vertex of e
+  trg_vertex <- V(g)[get.edgelist(g)[e, 2]]
+  # Find observed nodes that are downstream of the target vertex 
+  downstream_observed <- intersect(V(g)[is.observed], getDownstreamNodes(g, trg_vertex)) 
+  #Find edges on paths between the target vertex and the downstream observed nodes.
+  dependent_edges <- NULL
+  for(v in downstream_observed){
+    # Use tryCatch here because I want this function to return NULL instead of erroring out 
+    # if a node is not downstream.
+    connecting_edges <- tryCatch(getConnectingEdges(g, trg_vertex, v),
+                                 error = function(e) NULL)
+    # tag 'em and bag 'em
+    dependent_edges <- c(dependent_edges, connecting_edges)
   }
-  dependent.edges
+  dependent_edges %>% ensure_that(!(e %in% .)) # sanity check
 }
-
-
 
 #' Fit an initialized network
 #' 
@@ -73,17 +82,17 @@ getDependentEdges <- function(g, e){
 #' @param verbose if TRUE print messages generated during optimization
 fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100){
   mse <-  getMSE(g)
-  for(i %in% 1:max.iter){
+  for(i in 1:max.iter){
     print(i)
     g <- resetUpdateAttributes(g) %>%
-      updateEdges %>% 
+      updateWeights %>% 
       updateSignals
     message("First 3 Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n")
     mse <- getMSE(g) %T>% # Get the new MSE
-      {message("Mean Squared Error: ", round(., 3), "\n")} %T>% # Message out the error
-      {if((mse - .) < epsilon) return(g)} # Stop if improvement is super small.
+{message("Mean Squared Error: ", round(., 3), "\n")} %T>% # Message out the error
+{if((mse - .) < epsilon) return(g)} # Stop if improvement is super small.
   }
-  g
+g
 }
 
 #' Fit a Signalgraph model
@@ -104,8 +113,8 @@ fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100){
 #' @param verbose if TRUE print messages generated during optimization
 #' @return A fitted signalgraph object.
 #' @export
-fitNetwork <- function(g, data, graph_attr, epsilon = 1e-3, max.iter = 100, verbose=FALSE){
+fitNetwork <- function(g, data, graph_attr, epsilon = 1e-3, max.iter = 100){
   g %>% 
-    initializeGraph(graph_attr, n = nrow(data)) %>%
-    fitInitializedNetwork(epsilon, max.iter, verbose)
+    initializeGraph(data, graph_attr) %>%
+    fitInitializedNetwork(epsilon, max.iter)
 }

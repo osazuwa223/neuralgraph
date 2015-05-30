@@ -3,6 +3,13 @@ devtools::load_all("../../R/tools.R")
 option <- FALSE
 context("Models gets reasonable fits")
 
+test_that("despite not working a single node graph input, regression on a constant works if the constant
+          is given explicity.", {
+            g_const <- graph.empty(2) %>% nameVertices %>% `+`(edge(c("2", "1"))) 
+            data2 <- data.frame(runif(10), rep(1, 10)) %>% `names<-`(c("1", "2"))
+            fitNetwork(g_const, data2)
+          })
+
 test_that("in an initialized neural net style model where the predicted and observed output are 
           exactly the same, the model results of fitting the model should be a graph with 0 error 
           and unchanged weights.", {
@@ -19,6 +26,8 @@ test_that("in an initialized neural net style model where the predicted and obse
   # The weights should be unchanged
   expect_equal(E(g2)$weight, E(g)$weight, tolerance= .01)
 })
+
+test_that("I can get descent results on a linear model with hidden nodes", {})
 
 ### On titanic
 data(titanic3)

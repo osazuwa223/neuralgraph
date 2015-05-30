@@ -11,3 +11,7 @@
 #   g <- initializeGraph(g, simple_system, simple_system, penalty = .01, activation = f, activation.prime = NULL)
 #   
 # })
+
+test_that("remove a set of parent proteins and edges, show that model error for the child is increased.", {})
+
+test_that("I can reproduce predictive ability of Sachs")

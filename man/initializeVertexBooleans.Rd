@@ -6,14 +6,18 @@
 \usage{
 initializeVertexBooleans(g)
 }
+\value{
+g
+}
 \description{
 There are 4 core boolean vertex attributes:
 \itemize{
- \item{is.bias}{TRUE if the vertex is a bias or intercept}
+ \item{is.bias}{TRUE if the vertex is a bias or bias}
  \item{is.observed}{TRUE if the vertex is observed in the data}
+ \item{is.hidden}{TRUE if the vertex is not an bias and not observed in data}
  \item{is.root}{TRUE if the vertex is a root in the graph}
  \item{is.leaf}{TRUE if the vertex is a leaf in the graph}
- }
+}
 }
 \details{
 This function initializes all these vertex attributes for later updating.

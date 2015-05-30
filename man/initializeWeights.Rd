@@ -6,7 +6,14 @@
 \usage{
 initializeWeights(g)
 }
+\arguments{
+\item{g}{igraph object}
+}
+\value{
+a graph with updated weights
+}
 \description{
-Simulating starting weights
+Starting weights used when fitting signalgraph objects are simulated from a uniform distribution
+where the range is given by the 'min.max.constraints' attribute.
 }
 

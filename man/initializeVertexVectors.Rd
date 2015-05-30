@@ -2,29 +2,15 @@
 % Please edit documentation in R/data-structure.R
 \name{initializeVertexVectors}
 \alias{initializeVertexVectors}
-\title{Initialize numerically-valued vertex attributes}
+\title{Add vector attributes to graph vertices}
 \usage{
-initializeVertexVectors(g, v.index)
+initializeVertexVectors(g)
 }
 \arguments{
-\item{g}{graph model}
-
-\item{v.index}{vertex index}
-}
-\value{
-and igraph object where the above attributes are initialized to the value \code{list(rep(NA, g$n))}
+\item{g}{igraph object}
 }
 \description{
-For a given vertex, vertex attibutes that take a numeric vector as a value are
-initialized with a placeholder. Specifically, the vertex attributes are;
-\itemize{
- \item{input.signal}{The vector of linear combination of values from the parent nodes}
- \item{output.signal}{The output of the activation function applied to input.signal}
- \item{f.prime.input}{The derivative of the activation function applied to the input.signal}
- \item{observed}{Observed values in the data.  Not present for hidden and input nodes.}
- }
-}
-\details{
-All of these are initialized with NA values
+signalgraph uses several vertex attributes that store a list of values.  These are
+called vector attributes, because the set of values is used as a vector in calculations.
 }
 

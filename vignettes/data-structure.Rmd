@@ -1,0 +1,32 @@
+---
+title: "Signalgraph Data Structure"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+## Inherits from the igraph class
+Signalgraph inherits from the igraph class, and all igraph methods work on a signalgraph object.
+
+## Building a signalgraph
+Start with an input graph and data.  The variables in the data must match vertices in the graph.  However some vertices may have no data - i.e. they are hidden variables.
+
+Here, I simulate a graph and dataset.  The graph has 10 nodes, 5 of which are observed in the data.  The data has 10 observations.
+
+```{r, message=FALSE}
+library(signalgraph)
+```
+
+```{r}
+g <- random_unfit_sg(10, 5, 10)
+sg_viz(g, show_biases = FALSE)
+```
+
+The green nodes are observed and the blue nodes are hidden in the data.
+
+```{r}
+data <- recover_design(g)
+head(data)
+```

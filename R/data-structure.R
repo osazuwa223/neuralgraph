@@ -1,9 +1,31 @@
+
+
+#' Check validity of arguments
+#' 
+#' Check validity of both inputs to constuction of signalgraph object
+#' @param g an igraph object, vertices should be named.
+#' @param data a dataframe, each variable name should match a vertex name in the graph
+#' @return the input graph, ready for passing to a subsequent function
+checkArgs <- function(g, data){
+  if(!is.directed(g)) stop("Signal graph requires a directed graph")
+  if(vcount(g) < 2 || ecount(g) == 0) stop("There has to be at least 2 vertices and 1 directed edge.")
+  if(is.null(V(g)$name)) stop("Vertices must be named")
+  if(!all(names(data) %in% V(g)$name)) stop("Data contains variables that are not named in the graph.")
+  leaves <- V(g)[get_leaves(g)]$name
+  roots <- V(g)[get_roots(g)]$name
+  if(length(intersect(roots, leaves)) != 0) stop("Detected at least one vertex that is both a root and a leaf. Perhaps there is an unconnected vertex?")
+  if(length(setdiff(c(roots, leaves), names(data))) > 0) stop("Graph roots and leaves must be observed in the data.")  
+  basic_attributes <- c("activation", "min.max.constraints", "n", "penalty")
+  if(any(basic_attributes %in% list.graph.attributes(g))) stop("Input graph has graph attributes reserved for signal graph.")
+  g
+}
+
 #' Checks the validity of a vertex vector attribute
 #' 
 #' @examples
 #' g <- get_gate()
-#' validateVector(unlist(V(g)[is.observed]$observed))
-validateVector <- function(item){
+#' checkVector(unlist(V(g)[is.observed]$observed))
+checkVector <- function(item){
   valid <- TRUE
   if(any(is.na(item))) valid <- FALSE
   if(any(is.infinite(item))) valid <- FALSE
@@ -62,13 +84,12 @@ initializeWeights <- function(g){
 #' @param n number of rows in the data
 initializeGraphAttributes <- function(g, graph_attr, n){
   basic_attributes <- c("activation", "min.max.constraints", "n", "penalty")
-  if(any(basic_attributes %in% list.graph.attributes(g))) stop("Input graph has graph attributes reserved for signal graph.")
-  for(attrib in names(graph_attr)) g <- set.graph.attribute(g, attrib, graph_attr[[attr]])
+  for(attrib in names(graph_attr)) g <- set.graph.attribute(g, attrib, graph_attr[[attrib]])
   graph_attributes <- list.graph.attributes(g)
   if(!("penalty" %in% graph_attributes)) g$penalty <- 0 # Have a basic penalty.
   if(!("activation" %in% graph_attributes)){
     g$activation <- logistic
-    warning("No activation function specified. Defaulting logistic activation.")
+    message("No activation function specified. Defaulting logistic activation.")
   }
   g$n <- n
   g
@@ -97,6 +118,7 @@ initializeVectorAttributesForVertex <- function(g, v.index){
   V(g)[v.index]$f.prime.input <- na.placeholder
   V(g)[v.index]$output.signal <- na.placeholder
   V(g)[v.index]$observed <- na.placeholder
+  V(g)
   g
 }
 
@@ -110,16 +132,18 @@ initializeVectorAttributesForVertex <- function(g, v.index){
 #' @param data a data frame. All of the names in the data from must match a vertex name.
 #' @return an igraph object where the 
 addDataToVertices <- function(g, data){
-  if(!(all(names(data) %in% V(g)$name))) stop("Data contains variable names that don't match vertices in the graph.")  
   for(item in names(data)){
-    V(g)[item]$observed <- data[, item] %>% #pull the variable from the data
-      list #put it in list form
+    data_list <- list(data[, item])
+    V(g)[item]$observed <- data_list
     V(g)[item]$is.observed <- TRUE 
     if(V(g)[item]$is.root) V(g)[item]$output.signal <- data_list
   }
+  # Label the hidden nodes
   hidden_from_data <- V(g)[!is.bias] %>% # pull the non-bias nodes
     {setdiff(.$name, names(data))} # find those that are not in the data  
-  V(g)[hidden_from_data]$is.hidden <- TRUE                             
+  V(g)[hidden_from_data]$is.hidden <- TRUE
+  # Give 1 value ot the interceopts
+  V(g)[is.bias]$output.signal <- list(rep(1, g$n))
   g
 }
 
@@ -137,12 +161,12 @@ addBiases <- function(g){
   non.root.nodes <- V(g)[inDegree(g, V(g)) != 0]
   g.new <- g
   for(v in non.root.nodes){
-    bias_name <- paste("bias", v, sep="_")} # create a name for the bias, eg. "bias_2"
-    g.new <- g.new + bias_name %>% # Add a vertex to the graph. The `+.igraph` method adds vertices with `+` primitive.  
-      initializeVectorAttributesForVertex(bias.name) #Having added the bias, give it the correct properties
-    V(g.new)[bias.name]$is.bias <- TRUE #Label the bias as 'bias'
-    V(g.new)[bias.name]$output.signal <- list(rep(1, g$n)) #Give the value of 1
-    g.new <- g.new + igraph::edge(bias.name, V(g)[v]$name)) #same as 'g.new + igraph::edge(bias.name, V(g)[v]$name)' but safer
+    bias_name <- paste("bias", v, sep="_") # create a name for the bias, eg. "bias_2"
+    g.new <- (g.new + bias_name) %>% # Add a vertex to the graph. The `+.igraph` method adds vertices with `+` primitive.  
+      initializeVectorAttributesForVertex(bias_name) #Having added the bias, give it the correct properties
+    V(g.new)[bias_name]$is.bias <- TRUE #Label the bias as 'bias'
+    V(g.new)[bias_name]$output.signal <- list(rep(1, g$n)) #Give the value of 1
+    g.new <- g.new + igraph::edge(bias_name, V(g)[v]$name) #same as 'g.new + igraph::edge(bias_name, V(g)[v]$name)' but safer
   }
   g.new
 }
@@ -158,15 +182,18 @@ addBiases <- function(g){
 #'  \item{is.leaf}{TRUE if the vertex is a leaf in the graph}
 #' }
 #'  
-#'  This function initializes all these vertex attributes for later updating.
+#' This function initializes all these vertex attributes for later updating.
+#' @return g
 initializeVertexBooleans <- function(g){
   V(g)$is.bias <- FALSE
+  V(g)[grepl('bias', V(g)$name)]$is.bias <- TRUE # grep the biases by name and label them.
   V(g)$is.observed <- FALSE
   V(g)$is.hidden <- FALSE
   V(g)$is.root <- FALSE
   V(g)[get_roots(g)]$is.root <- TRUE
   V(g)$is.leaf <- FALSE 
-  V(g)[get_roots(g)]$is.leaf <- TRUE
+  V(g)[get_leaves(g)]$is.leaf <- TRUE
+  g
 }
 
 #' Add vector attributes to graph vertices
@@ -190,12 +217,12 @@ initializeVertexVectors <- function(g) {
 #'   \item Reset the 'update' vertex and edge attributes
 #' }
 #' @param g an igraph object
-initializeVertices <- function(g){
+initializeVertices <- function(g, data){
   g %>%
-    initializeVertexBooleans %>%
     addBiases %>%
+    initializeVertexBooleans %>%
     initializeVertexVectors %>%
-    addDataToVertices %>%
+    addDataToVertices(data) %>%
     resetUpdateAttributes
 }
 
@@ -214,10 +241,10 @@ initializeEdges <- function(g){
 #' 
 #' igraph objects have three kinds attributes; graph attributes, edge attributes, and vertex attributes.
 #' This function builds a signalgraph object from an igraph object using these attributes.  First the 
-#' graph attributes are added, then vertex attributes.  The signal graph model is fit on data frame.  
+#' graph attributes are added, then vertex attributes.  The model takes a data frame as an input.  
 #' The name of each variable in the data must match a vertex name in the graph.  The values for a given variable
-#' are added as a vertex attribute to that vertex.  Next, edge weights are added as edge attributes are added.  Finally, 
-#' the values attributed to the weights are updated given the weights.
+#' are added as a vertex attribute to that vertex.  Next, edge weights are added as edge attributes.  Finally, 
+#' the weights are updated.
 #' 
 #' @param g igraph object. The vertices must be named. 
 #' @param data a data frame. All of the names in the data from must match a vertex name.
@@ -229,10 +256,11 @@ initializeEdges <- function(g){
 #'  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
 #'  }
 #' @return A graph with all the attributes needed to fit the neural network model.
-initializeGraph <- function(g, data, graph_attr){
-  initializeGraphAttributes(g, graph_attr) %>%
-    initializeVertices %>%
-    addDataToVertices(data) %>%
-    initializeEdges %>%
+initializeGraph <- function(g, data, graph_attr = NULL){
+  g %>%
+    checkArgs(data) %>% # Check the arguments
+    initializeGraphAttributes(graph_attr, nrow(data)) %>% # Add the graph attributes
+    initializeVertices(data) %>% # Add biases and vertex attributes
+    initializeEdges %>% # Add edge weights
     updateSignals # update vertex values given weights
 }

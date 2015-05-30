@@ -2,9 +2,9 @@
 % Please edit documentation in R/data-structure.R
 \name{initializeGraph}
 \alias{initializeGraph}
-\title{Priming an igraph object for fitting a signalgraph model}
+\title{Create an signal graph object that is unfitted}
 \usage{
-initializeGraph(g, data, graph_attr)
+initializeGraph(g, data, graph_attr = NULL)
 }
 \arguments{
 \item{g}{igraph object. The vertices must be named.}
@@ -25,12 +25,9 @@ A graph with all the attributes needed to fit the neural network model.
 \description{
 igraph objects have three kinds attributes; graph attributes, edge attributes, and vertex attributes.
 This function builds a signalgraph object from an igraph object using these attributes.  First the
-graph attributes are added, then vertex attributes.  The signal graph model is fit on data frame.
+graph attributes are added, then vertex attributes.  The model takes a data frame as an input.
 The name of each variable in the data must match a vertex name in the graph.  The values for a given variable
-are added as a vertex attribute to that vertex.  Next, edge weights are added as edge attributes are added.  Finally,
-the values attributed to the weights are updated given the weights.
-}
-\seealso{
-initializeGraphAttributes, initializeVertices, addDataToVertices, initializeEdges
+are added as a vertex attribute to that vertex.  Next, edge weights are added as edge attributes.  Finally,
+the weights are updated.
 }
 

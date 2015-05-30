@@ -78,14 +78,17 @@ doChainRule <- function(g, v, e){
 #' @return a new updated graph that can be used to generate a prediction.
 getPrediction <- function(g, v, new_weights){
   #message("Prediction function call: candidate weights being propagated forward.")
-  prediction.graph <- resetUpdateAttributes(g)
-  if(length(E(prediction.graph)[to(v)]) == 0) stop("Attempted to update incoming edge weights for parentless node.")
-  if(length(E(prediction.graph)[to(v)]) != length(new_weights)) stop("# of weights doesn't match # of incoming edges.")
-  E(prediction.graph)[to(v)]$weight <- new_weights
-  prediction.graph <- updateSignals(prediction.graph)
-  prediction <- unlist(V(prediction.graph)[is.observed]$output.signal)
-  if(!isValidV(prediction)) stop("An error occured in predicting vertex ", v)
-  prediction.graph
+  prediction_graph <- resetUpdateAttributes(g) %>%
+    ensure_that(length(E(.)[to(v)]) > 0, 
+                err_desc = "Attempted to update incoming edge weights for parentless node.") %>%
+    ensure_that(length(E(.)[to(v)]) == length(new_weights),
+                err_desc = "# of weights doesn't match # of incoming edges.")
+  E(prediction_graph)[to(v)]$weight <- new_weights
+  prediction_graph <- updateSignals(prediction_graph) %>%
+    ensure_that({ #Make sure all the output signals are valid vectors
+      lapply(V(.)[is.observed]$output.signal, checkVector) %>% unlist %>% all
+    }, err_desc = "One observed vertex has invalid values in output.signal")
+  prediction_graph
 }
 
 getMSE <- function(g){
@@ -191,9 +194,7 @@ getOptimizationFunctionNG <- function(g, lossFunction){
 }
 
 fitWeightsForNode <- function(g, v){
-  v <- V(g)[v]
-  lossFunction <- getObjective(g, v)
-  getGradient <- getGradientFunction(g, v)
+  lossFunction <- getObjective(g, v) 
   weights.initial <- E(g)[to(v)]$weight
   optimizer <- getOptimizationFunctionNG(g, lossFunction)
   weights.updated <- optimizer(weights.initial)

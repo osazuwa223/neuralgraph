@@ -7,13 +7,14 @@
 resetUpdateAttributes(g)
 }
 \arguments{
-\item{g}{a model}
+\item{g}{a igraph object}
 }
 \value{
-A model with 'updated' attribute for each vertex is reset.
+A model with 'updated' attribute for each vertex and edge is reset.
 }
 \description{
-Resets the 'updated' vertex attribute for each vertex. All vertices, except for roots (which includes biases)
-have this attribute set to FALSE.  The biases have this attribute set to TRUE.
+Resets the 'updated' attribute for each vertex and edge. All vertices, except for roots (which includes biases)
+have this attribute set to FALSE.  The biases have this attribute set to TRUE -- this attribute should always
+be true for biases.
 }
 

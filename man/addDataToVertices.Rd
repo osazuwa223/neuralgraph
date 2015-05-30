@@ -11,8 +11,12 @@ addDataToVertices(g, data)
 
 \item{data}{a data frame. All of the names in the data from must match a vertex name.}
 }
+\value{
+an igraph object where the
+}
 \description{
-Adds data to Any vertex that does not map to a name in the data will be treated as a hidden node.
+Adds data to the 'observed' attributes.  Any vertex that does not map to a name in the data will be treated
+as a hidden node, meaning \code{V(g)[v]$is.observed} will be \code{FALSE}.
 If a variable in the data is not present amongst the graph vertices, an error is thrown.
 }
 

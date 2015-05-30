@@ -10,4 +10,7 @@ Depends: R (>= 2.14),
          lucy,
          magrittr,
          ensurer
-Suggests: testthat
+Suggests: testthat,
+          dplyr,
+    knitr
+VignetteBuilder: knitr

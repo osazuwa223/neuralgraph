@@ -4,12 +4,19 @@
 \alias{initializeVertices}
 \title{Initialize the vertex attributes and values}
 \usage{
-initializeVertices(g)
+initializeVertices(g, data)
+}
+\arguments{
+\item{g}{an igraph object}
 }
 \description{
-Initialize the vertex attributes and values
+Initializes the boolean attributes of the vectors,
+ \enumerate{
+  \item Initialize the boolean vertex attributes
+  \item Add bias nodes nodes
+  \item Add vector attributes to vertices
+  \item Populate vector attributes with data
+  \item Reset the 'update' vertex and edge attributes
 }
-\seealso{
-initializeVertexBooleans, addInterceptNodes, applyVertexVectors, addDataToVertices, resetUpdateAttributes
 }
 

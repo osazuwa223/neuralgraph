@@ -2,11 +2,22 @@
 % Please edit documentation in R/modelfitting.R
 \name{getDependentEdges}
 \alias{getDependentEdges}
-\title{Determine the edges in g whose weights impact the optimization of the weight of edge e}
+\title{Find edges that affect an edge's optimization}
 \usage{
 getDependentEdges(g, e)
 }
+\arguments{
+\item{g}{a signalgraph object}
+
+\item{e}{an edge index in the signal graph}
+}
+\value{
+set of edge indices
+}
 \description{
-Determine the edges in g whose weights impact the optimization of the weight of edge e
+When optimizing weights by back-propagation, before optimizing the objective function for a
+given weight, it is necessary to first optimize for all weights that are no paths downstream
+from the given weight and upstream of an observed variable.  This function identifies all such
+downstream edges relative an input edge.
 }
 

@@ -2,7 +2,7 @@
 % Please edit documentation in R/modelfitting.R
 \name{updateSignals}
 \alias{updateSignals}
-\title{Update the 'signal' at each vertex in a signal graph}
+\title{Update the 'signal' at each vertex in a signalgraph object}
 \usage{
 updateSignals(g)
 }
@@ -10,13 +10,10 @@ updateSignals(g)
 \item{g}{a signalgraph object.}
 }
 \value{
-g a signal graph object.
+a signal graph object with updated values for the signal attributes.
 }
 \description{
 Updates the 'output.signal' attribute of each vertex in the signalgraph.  Relies on the 'updateVertices'
 propagation function in the lucy package, using calculateVals as the callback.
-}
-\seealso{
-calculateVals
 }
 
