@@ -14,4 +14,4 @@
 
 test_that("remove a set of parent proteins and edges, show that model error for the child is increased.", {})
 
-test_that("I can reproduce predictive ability of Sachs")
+test_that("I can reproduce predictive ability of Sachs", {})

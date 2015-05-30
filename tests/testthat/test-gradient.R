@@ -18,14 +18,10 @@ test_that("logistic_prime basic function is working as expected", {
   expect_equal(logistic(4) - logistic(-4), integrate(Vectorize(logistic_prime), -4, 4)$value)
 })
 
-
-
-test_that("hand calculation of gradient in error free case of logistic regression reproduces gradient calculation", {
-  
+test_that("hand calculation of gradient in error free case of logistic regression reproduces gradient calculation", {  
 })
 
-test_that("hand calculation of gradient in case of logistic regression with errors reproduces gradient calculation", {
-  
+test_that("hand calculation of gradient in case of logistic regression with errors reproduces gradient calculation", {  
 })
 
 
@@ -38,10 +34,8 @@ titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>
   rescale_df %$% #Note, everything is rescaled to between 0 and 1
   df
 
-
 g <- mlp_graph("age", "survived") %>%
-  initializeGraph(input.table = select(titan, age), 
-                  output.table = select(titan, survived)) %>%
+  initializeGraph(select(titan, age, survived)) %>%
   {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
   updateSignals
@@ -72,19 +66,19 @@ test_that("hand calculation of doChainRule in layer-free multivarite produces sa
   age_out <- V(g)["age"]$output.signal %>% unlist
   fare_out <- V(g)["fare"]$output.signal %>% unlist
   linear_combo <- V(g)[c("age", "fare", "int.3")]$output.signal %>% 
-{do.call("cbind", .)} %>%
-  `%*%`(matrix(weights, ncol = 1))
-expected <- cbind(age_weight = logistic_prime(linear_combo) * age_out, 
+    {do.call("cbind", .)} %>%
+    `%*%`(matrix(weights, ncol = 1))
+  expected <- cbind(age_weight = logistic_prime(linear_combo) * age_out, 
                   fare_weight = logistic_prime(linear_combo) * fare_out,
                   int.3_weight = logistic_prime(linear_combo))
-chain_rule_output <- sapply(E(g)[to("survived")], doChainRule, g = g, v = V(g)["survived"])
-expect_equal(colSums(expected), colSums(chain_rule_output))
-#######
-Y <- V(g)["survived"]$observed %>% unlist
-Y_hat <- V(g)["survived"]$output.signal %>% unlist
-expected <- apply(chain_rule_output, 2, function(item) -(Y - Y_hat) * item) %>% colSums
-gradient_output <- getGradientFunction(g, V(g)["survived"])(weights) %>% as.numeric
-expect_equal(expected, gradient_output)
+  chain_rule_output <- sapply(E(g)[to("survived")], doChainRule, g = g, v = V(g)["survived"])
+  expect_equal(colSums(expected), colSums(chain_rule_output))
+  #######
+  Y <- V(g)["survived"]$observed %>% unlist
+  Y_hat <- V(g)["survived"]$output.signal %>% unlist
+  expected <- apply(chain_rule_output, 2, function(item) -(Y - Y_hat) * item) %>% colSums
+  gradient_output <- getGradientFunction(g, V(g)["survived"])(weights) %>% as.numeric
+  expect_equal(expected, gradient_output)
 })
 
 
@@ -145,8 +139,7 @@ test_that("gradient should be giving expected values as numeric derivative",{
 
 g1 <- get_gate(outputs = "AND", layers = c(3, 2))
 g2 <- mlp_graph(c("age", "fare"), "survived", c(5, 5)) %>%
-  initializeGraph(input.table = select(titan, age, fare), 
-                  output.table = select(titan, survived))
+  initializeGraph(select(titan, age, fare, survived))
 
 test_that("doChainRule errors in the case when the vertex value does not depend on the weight", {
   skip("a bug here but ignoring gradient descent for now")
