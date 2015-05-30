@@ -1,6 +1,8 @@
 # Testing and evaluation of performance of various optimization techniques
 devtools::load_all("../../R/optimization.R")
 devtools::load_all("../../R/tools.R")
+#devtools::load_all("R/optimization.R")
+#devtools::load_all("R/tools.R")
 
 #devtools::load_all("R/optimization.R")
 library(plyr)
@@ -16,12 +18,10 @@ titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>
   df
 
 g <- mlp_graph("age", "survived") %>%
-  initializeGraph(input.table = select(titan, age), 
-                  output.table = select(titan, survived)) %>%
+  initializeGraph(select(titan, age, survived)) %>%
   {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
   updateSignals
-
 
 ###########################################################################################
 # Tests of optimization of logistic activation :
@@ -47,9 +47,10 @@ test_that("in single variate no bias case, pure loss minimization gets the same 
 # Next expanding to multivariate.  Again, the goal is to compare to nls().
 
 g <- mlp_graph(c("age", "fare"), "survived") %>%
-  initializeGraph(input.table = select(titan, age, fare), output.table = select(titan, survived))
+  initializeGraph(select(titan, age, fare, survived))
 
 test_that("in multivariate case, pure loss minimization gets the same results as nls", {
+  set.seed(2701) # Sometimes you get a singular matrix, setting the seed fixes that.
   expected <- nls(survived ~ logistic(w0 + w1 * age + w2 * fare), data = titan, 
                   start = as.list(structure(E(g)[to("survived")]$weight, names = c("w1", "w2", "w0")))) %>%
     coef %>% # Get the coefficients 
@@ -63,8 +64,7 @@ test_that("in multivariate case, pure loss minimization gets the same results as
 ###########################################################################################
 # Next expanding to the case of multiple hidden layers
 g <- mlp_graph(c("age", "fare"), "survived", c(5, 5)) %>%
-  initializeGraph(input.table = select(titan, age, fare), 
-                  output.table = select(titan, survived))
+  initializeGraph(select(titan, age, fare, survived))
 
 test_that("a limited BFGS optimization reduces loss for the output node.", {
   get_loss <- getObjective(g, "survived")
