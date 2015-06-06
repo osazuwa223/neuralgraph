@@ -8,7 +8,7 @@
 #                   X3 = f(v0 + v1 * X2))}
 #   g <- data.frame(from = c("X1", "X2"), to = c("X2", "X3")) %>%
 #     graph.data.frame 
-#   g <- initializeGraph(g, simple_system, simple_system, penalty = .01, activation = f, activation.prime = NULL)
+#   g <- initializeGraph(g, simple_system, simple_system, L1_pen = .01, L2_pen = .01, activation = f, activation.prime = NULL)
 #   
 # })
 

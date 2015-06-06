@@ -15,7 +15,7 @@ checkArgs <- function(g, data){
   roots <- V(g)[get_roots(g)]$name
   if(length(intersect(roots, leaves)) != 0) stop("Detected at least one vertex that is both a root and a leaf. Perhaps there is an unconnected vertex?")
   if(length(setdiff(c(roots, leaves), names(data))) > 0) stop("Graph roots and leaves must be observed in the data.")  
-  basic_attributes <- c("activation", "min.max.constraints", "n", "penalty")
+  basic_attributes <- c("activation", "min.max.constraints", "n", "L1_pen", "L2_pen")
   if(any(basic_attributes %in% list.graph.attributes(g))) stop("Input graph has graph attributes reserved for signal graph.")
   g
 }
@@ -73,7 +73,8 @@ initializeWeights <- function(g){
 #' attributes.  igraph has 3 kinds of attributes, edge attributes, vertex attributes, and graph attributes.
 #' This function sets graph attributes.  Key examples include:
 #'  \itemize{
-#'  \item{penalty}{penalized least squares error penalty parameter value}
+#'  \item{L1_pen}{penalized least squares error L1 penalty parameter value}
+#'  \item{L2_pen}{penalized least squares error L2 penalty parameter value}
 #'  \item{activation}{the activation function (this actually is an R function)}
 #'  \item{activation.prime}{The derivative fo the activation function, used in gradient calculation.}
 #'  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
@@ -83,10 +84,11 @@ initializeWeights <- function(g){
 #' @param graph_attr a list of objects to be used as graph attributes
 #' @param n number of rows in the data
 initializeGraphAttributes <- function(g, graph_attr, n){
-  basic_attributes <- c("activation", "min.max.constraints", "n", "penalty")
+  basic_attributes <- c("activation", "min.max.constraints", "n", "L1_pen", "L2_pen")
   for(attrib in names(graph_attr)) g <- set.graph.attribute(g, attrib, graph_attr[[attrib]])
   graph_attributes <- list.graph.attributes(g)
-  if(!("penalty" %in% graph_attributes)) g$penalty <- 0 # Have a basic penalty.
+  if(!("L1_pen" %in% graph_attributes)) g$L1_pen <- 0 # parameter of 0 unless specified.
+  if(!("L2_pen" %in% graph_attributes)) g$L2_pen <- 0 # parameter of 0 unless specified.
   if(!("activation" %in% graph_attributes)) g$activation <- logistic
   g$n <- n
   g
@@ -247,7 +249,8 @@ initializeEdges <- function(g){
 #' @param data a data frame. All of the names in the data from must match a vertex name.
 #' @param graph_attr list of graph attributes.  Graph attributes include:  
 #' \itemize{
-#'  \item{penalty}{penalized least squares error penalty parameter value}
+#'  \item{L1_pen}{penalized least squares error L1 penalty parameter value}
+#'  \item{L2_pen}{penalized least squares error L2 penalty parameter value}
 #'  \item{activation}{the activation function (this actually is an R function), defaults to logistic.}
 #'  \item{activation.prime}{The derivative of the activation function, used in gradient calculation. Defaults to NULL}
 #'  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}

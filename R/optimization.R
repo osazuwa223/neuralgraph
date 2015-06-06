@@ -110,12 +110,14 @@ getMSE <- function(g){
 #' candidate graphs against which the initial_graph will be compared in the optimization.
 #' @param v the vertex whose weights will be optimized.
 getObjective <- function(initial_graph, v){
-  if(is.null(initial_graph$penalty)) stop("Penalty has not been specified.")
+  if(is.null(initial_graph$L1_pen) || is.null(initial_graph$L2_pen)) stop("Penalty has not been specified.")
   lossFunction <- function(wts){
     candidate_graph <- getPrediction(initial_graph, v, wts)
     prediction <- unlist(V(candidate_graph)[is.observed]$output.signal)
     observed <- unlist(V(initial_graph)[is.observed]$observed)
-    sum((observed - prediction) ^ 2) + initial_graph$penalty * sum(E(candidate_graph)$weight ^ 2)
+    sum((observed - prediction) ^ 2) + 
+      initial_graph$L1_pen * sum(E(candidate_graph)$weight) + 
+      initial_graph$L2_pen * sum(E(candidate_graph)$weight ^ 2)
   }
   lossFunction
 } 

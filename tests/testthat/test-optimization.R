@@ -48,8 +48,10 @@ test_that("prediction from logistic function works as expected.", {
 # Testing penalized loss
 test_that("penalized loss is greater than unpenalized loss for the same graph",{
   g_pen <- g
-  g_pen$penalty <- .05
-  g$penalty <- 0
+  g_pen$L1_pen <- .05
+  g_pen$L2_pen <- .05
+  g$L1_pen<- 0
+  g$L2_pen<- 0
   v <- V(g)["survived"]
   pen_loss <- getObjective(g_pen, v)
   loss <- getObjective(g, v)

@@ -69,7 +69,7 @@ test_that("penalized least squares has less sum squares of fitted weight than un
   set.seed(30)
   g_structure <- mlp_graph(c("age", "fare"), "survived", c(4, 3))
   g_no_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), epsilon = .01)}
-  g_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), penalty = .05, epsilon = .01)}
+  g_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), L2_pen = .05, epsilon = .01)}
   expect_less_than(sum(E(g_pen)$weight^2), sum(E(g_no_pen)$weight^2))  
 })
 
