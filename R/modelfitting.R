@@ -80,17 +80,22 @@ getDependentEdges <- function(g, e){
 #' @param epsilon when means square area falls below epsilon, stop
 #' @param max.iter maximum number of iterations
 #' @param verbose if TRUE print messages generated during optimization
-fitInitializedNetwork <- function(g, epsilon = 1e-3, max.iter = 100){
-  mse <-  getMSE(g)
+fitInitializedNetwork <- function(g, epsilon = 1e-4, max.iter = 3){
+  mse_last <-  getMSE(g)
   for(i in 1:max.iter){
-    print(i)
     g <- resetUpdateAttributes(g) %>%
       updateWeights %>% 
       updateSignals
-    message("First 3 Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n")
+    `if`(ecount(g) > 3,
+         message("First 3 Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n"),
+         message("Weights: ", paste(round(E(g)$weight, 3), collapse =", "), "\n")
+    )
     mse <- getMSE(g) %T>% # Get the new MSE
-{message("Mean Squared Error: ", round(., 3), "\n")} %T>% # Message out the error
-{if((mse - .) < epsilon) return(g)} # Stop if improvement is super small.
+      {message("Mean Squared Error: ", round(., 3), "\n")} 
+    if(abs(mse - mse_last) < epsilon){
+        message("Algorithm stabilized in ", i, " iterations.")
+        return(g) # Stop if improvement is super small.
+      } 
   }
 g
 }
@@ -113,7 +118,7 @@ g
 #' @param verbose if TRUE print messages generated during optimization
 #' @return A fitted signalgraph object.
 #' @export
-fitNetwork <- function(g, data, graph_attr, epsilon = 1e-3, max.iter = 100){
+fitNetwork <- function(g, data, graph_attr = NULL, epsilon = 1e-3, max.iter = 3){
   g %>% 
     initializeGraph(data, graph_attr) %>%
     fitInitializedNetwork(epsilon, max.iter)

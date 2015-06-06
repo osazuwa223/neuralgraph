@@ -219,7 +219,7 @@ fitWeightsForEdgeTarget <- function(g, e){
   message("Fitting for edge ", E(g)[e]$name)
   g <- fitWeightsForNode(g, edge.target)
   new_weight <- E(g)[e]$weight
-  message(E(g)[e]$name, ': Old weight = ', old_weight, ', New Weight = ', new_weight)
+  message(E(g)[e]$name, ': Old weight = ', round(old_weight, 4), ', New Weight = ', round(new_weight, 4))
   E(g)[e]$updated <- TRUE
   g
 }

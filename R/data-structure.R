@@ -87,10 +87,7 @@ initializeGraphAttributes <- function(g, graph_attr, n){
   for(attrib in names(graph_attr)) g <- set.graph.attribute(g, attrib, graph_attr[[attrib]])
   graph_attributes <- list.graph.attributes(g)
   if(!("penalty" %in% graph_attributes)) g$penalty <- 0 # Have a basic penalty.
-  if(!("activation" %in% graph_attributes)){
-    g$activation <- logistic
-    message("No activation function specified. Defaulting logistic activation.")
-  }
+  if(!("activation" %in% graph_attributes)) g$activation <- logistic
   g$n <- n
   g
 }

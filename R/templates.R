@@ -100,7 +100,7 @@ get_gate <- function(outputs = "all", layers=NULL){
       intersect(V(g)[is.bias])
     g <- igraph::induced.subgraph(g, setdiff(V(g), c(exclusion_nodes, nuisance_biases)))
   }
-  g
+  nameEdges(g) 
 }
 
 

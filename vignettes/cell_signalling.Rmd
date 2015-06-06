@@ -1,0 +1,91 @@
+---
+title: "Vignette Title"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+## T-Cell signalling dataset
+
+The T-cell signalling dataset consists of simultaneous measurements of 11 phosphorylated proteins and phospholypids derived from thousands of individual primary immune system cells, specifically T cells. When T cells are stimulated, the signal flows across a series of physical interactions between the measured proteins. The network of these interactions forms the T cell signalling pathway.  
+
+A directed acyclic network can be used to represent this signalling pathway.  The authors of this publication shared constructed a reference network, which I stored as an R object in my package [bnlearn](#): 
+
+```{r}
+library(dplyr)
+coefs <- centered_scaled_gauss %>% coef 
+parents <- melt(lapply(coef(centered_scaled_gauss), names))$value
+coefs %>%
+  melt %>%
+  mutate(child = L1, weight = value) %>%
+  mutate(parent = parents) %>%
+  select(parent, child, weight)
+```
+
+tcell_examples
+
+
+The loaded R object contains both the raw data and preprocessed data used in the original publication for network inference.  
+
+The data cotains information on interventions that provide signal to the network as well as activate and inhibit individual proteins.  These interventions enable network inference to provide edges with a causal interpretation. Run *?data* for more background on the data.
+
+```{r}
+raw <- tcells$raw
+processed <- tcells$processed
+```
+
+The data frame *processed* has intervention information in the INT column.
+
+## Network inference experiment workflow
+
+The workflow for network inference experiments in this context is as follows:
+
+1 Select proteins
+2 Quantify data
+3 Apply network inference with model averaging
+4 Evaluate strength of edges
+5 Validate both highly ranked and interesting edges in follow up experiments
+
+Mario Scutari describes an R-based workflow on this T-cell data.  Using *bnlearn* 
+
+```{r}
+scutari_analysis <- function(df){
+  int_array <- as.numeric(df$INT); df$INT <- NULL  # Pull out the intervetions, so only the proteins remain.
+  int_arg <- lapply(seq_along(df), function(i){
+   which(int_array == i)}) %>%
+   structure(names =  names(df))
+   random.graph(nodes = names(df), # Generate random graph
+                               method = "melancon",
+                               num = 500,
+                               burn.in = 10^5,
+                               every = 100) %>%
+    lapply(function(net){ # Fit Tabu search to each graph
+      tabu(df, score = "mbde", exp = int_arg, iss = 10, start = net, tabu = 50)
+    })  %>%
+    custom.strength(nodes = names(df)) # Aggregate averaging results
+}
+model_averaging_results <- scutari_analysis(processed)
+
+```
+
+## Description of experiment
+
+Assume Sachs is ground truth
+My theory tells me that when the input network has spurious edges, my model will perform well by giving weak weights. Using a Gaussian model, or model averaging, some of Sach's edges will be weak.  The edges exist, but 
+signal flow is low.  I want those weak edges in the network so I can shrink them.  
+Suppose I remove Mek and Raf i.e. the Mapk pathway.  Then the influence on Erk then comes only PKA.  
+I am supposed to be quantifying different proteins.
+We pick different sets of nodes, and for each edge plot a roc curve
+
+## Network inference workflow
+
+Scutari book details an effective workflow for network inference on this dataset using the bnlearn package.  
+
+
+
+
+

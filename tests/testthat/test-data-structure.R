@@ -2,8 +2,8 @@ library(dplyr)
 devtools::load_all("../../R/optimization.R")
 devtools::load_all("../../R/tools.R")
 option <- FALSE
-devtools::load_all("R/optimization.R")
-devtools::load_all("R/templates.R")
+#devtools::load_all("R/optimization.R")
+#devtools::load_all("R/templates.R")
 context("Signal graph data structure")
 
 test_that("initializeGraph generates a signalgraph with all the desirable attributes", {
@@ -155,6 +155,7 @@ test_that("resetUpdateAttributes changes updated structure of all nodes EXCEPT r
       expect_false}
 })
 test_that("initializeGraph returns a graph structure ready for fitting.", {
+  long_test(option)
   g <- random_sg(5, 4, 10) # This generates a graph, and calls 'initializeGraph in the final step.
   # Fails if you initialize twice
   g_data <- recover_design(g)
