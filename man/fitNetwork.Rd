@@ -13,7 +13,8 @@ fitNetwork(g, data, graph_attr = NULL, epsilon = 0.001, max.iter = 3)
 
 \item{graph_attr}{list of graph attributes.  Graph attributes include:
 \itemize{
- \item{penalty}{penalized least squares error penalty parameter value}
+ \item{L1_pen}{penalized least squares error L1 penalty parameter value}
+ \item{L2_pen}{penalized least squares error L2 penalty parameter value}
  \item{activation}{the activation function (this actually is an R function), defaults to logistic.}
  \item{activation.prime}{The derivative fo the activation function, used in gradient calculation. Defaults to NULL}
  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
@@ -22,8 +23,6 @@ fitNetwork(g, data, graph_attr = NULL, epsilon = 0.001, max.iter = 3)
 \item{epsilon}{when means square area falls below epsilon, stop}
 
 \item{max.iter}{maximum number of iterations}
-
-\item{verbose}{if TRUE print messages generated during optimization}
 }
 \value{
 A fitted signalgraph object.

@@ -13,6 +13,7 @@ checkArgs <- function(g, data){
   if(!all(names(data) %in% V(g)$name)) stop("Data contains variables that are not named in the graph.")
   leaves <- V(g)[get_leaves(g)]$name
   roots <- V(g)[get_roots(g)]$name
+  if("is.bias" %in% list.vertex.attributes(g)) roots <- setdiff(roots, V(g)[is.bias]$name)
   if(length(intersect(roots, leaves)) != 0) stop("Detected at least one vertex that is both a root and a leaf. Perhaps there is an unconnected vertex?")
   if(length(setdiff(c(roots, leaves), names(data))) > 0) stop("Graph roots and leaves must be observed in the data.")  
   basic_attributes <- c("activation", "min.max.constraints", "n", "L1_pen", "L2_pen")
@@ -60,9 +61,29 @@ resetUpdateAttributes <- function(g){
 #' @return a graph with updated weights
 initializeWeights <- function(g){  
   if(any(is.infinite(g$min.max.constraints)) || is.null(g$min.max.constraints)) {
-    E(g)$weight <- rnorm(ecount(g), sd = 3)
+    if(!is.null(g$prop_sparse)){
+      stopifnot(g$prop_sparse > 0 || g$prop_sparse < 1)
+      prop_non_zero <- 1 - g$prop_sparse
+      E(g)$weight <-  rep(0, ecount(g)) 
+      non_zero_count <- ceiling(prop_non_zero * ecount(g))
+      non_zero_edge_index <- E(g)[sample(E(g), non_zero_count)]
+      E(g)[non_zero_edge_index]$weight <- rnorm(non_zero_count, sd = 3)
+    } else{
+      E(g)$weight <- rnorm(ecount(g), sd = 3)
+    }
   } else {
-    E(g)$weight <- runif(ecount(g), min = g$min.max.constraints[1], max = g$min.max.constraints[2])
+    e_min <- g$min.max.constraints[1]
+    e_max <- g$min.max.constraints[2]
+    if(!is.null(g$prop_sparse)){ # If the prop_sparse attribute is present, then prop_sparse many edges will be initialized at 0
+      stopifnot(g$prop_sparse > 0 || g$prop_sparse < 1)
+      prop_non_zero <- 1 - g$prop_sparse
+      E(g)$weight <-  rep(0, ecount(g))
+      non_zero_count <- ceiling(prop_non_zero * ecount(g))
+      non_zero_edge_index <- E(g)[sample(E(g), non_zero_count)]
+      E(g)[non_zero_edge_index]$weight <- runif(non_zero_count, min = g$min.max.constraints[1], max = g$min.max.constraints[2])
+    } else {
+      E(g)$weight <- runif(ecount(g), min = g$min.max.constraints[1], max = g$min.max.constraints[2])
+    }
   }
   g
 }

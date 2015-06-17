@@ -84,15 +84,35 @@ sg_viz <- function(g, main = NULL, show_biases = TRUE){
   if(!show_biases)  g <- igraph::induced.subgraph(g, V(g)[!is.bias])
   col <- structure(rep("white", vcount(g)), names = V(g)$name)
   col[V(g)$is.observed] <- "light green"
+  col[V(g)$is.root] <- "dark orange"
   col[V(g)$is.hidden] <- "blue"
   if("is.bias" %in% list.vertex.attributes(g)) col[V(g)$is.bias] <- "grey"
   node_list <- list(fill = col) 
   g_out <- g %>% nameVertices %>% # Give vertices names if they do not have nay 
     igraph.to.graphNEL(.) %>% # convert to a graphNEL
-    {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
-    {graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
-  if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
-  Rgraphviz::renderGraph(g_out) # Render the graph
-  graph::graph.par(list(graph = list(main = ""))) # Reset graph parameters
+{Rgraphviz::layoutGraph(.)} %>% # lay the graph out
+{graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
+if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
+Rgraphviz::renderGraph(g_out) # Render the graph
+graph::graph.par(list(graph = list(main = ""))) # Reset graph parameters
 }
 
+#' Convert logistic activation parameters to parameters in u / (1 + u) function
+logistic_to_positive <- function(g, v){
+  weight_vector <- matrix(E(g)[to(v)]$weight, ncol=1)
+  parents <- iparents(g, v)
+  parent_mat <- parents %>%
+    ensure_that(length(.) > 0) %>%
+    {do.call("cbind", V(g)[.]$output.signal)}
+  box_mat <- t(parent_mat) %*% parent_mat
+  inv_box <- solve(box_mat)
+  linear_combination <-  parent_mat %>%
+    `%*%`(weight_vector) %>% 
+    as.numeric %>%
+    ensure_that(checkVector(.))
+  new_weights <- inv_box %*% t(parent_mat) %*% exp(linear_combination) %>%
+    as.numeric %>%
+    structure(names = V(g)[parents]$name) %>%
+    ensure_that(. > 0)
+  new_weights
+}

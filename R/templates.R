@@ -43,27 +43,50 @@ rand_case <- function(m, k, n = m * k + m){
 #' @param n the number of desired rows in the data
 #' @return an initialized, but unfit (unoptimized) signal graph model
 #' @export
-random_unfit_sg <- function(m, k, n = m * k + m){
-  g <- rand_case(m, k, n) %>% 
-    {initializeGraph(.$g, .$data, graph_attr = list(activation = logistic))}
+random_unfit_sg <- function(m, k, n = m * k + m, ...){
+  g <- rand_case(m, k, n) 
+  initializeGraph(g$g, g$data, ...)
 }
 
-#' Generate a random unfit signalgraph object
+#' Generate a random fitted signalgraph object
 #' 
 #' Uses the generateMultiConnectedDAG in the lucy \url{https://github.com/osazuwa223/lucy} package.  
-#' Since the vertices that must have data are the roots and the leaves, (everything in between can be hidden),
-#' then a data frame is simulated for only those nodes.
+#' The vertices that must have data are the roots and the leaves, (everything in between can be hidden),
+#' so data is simulated for only those nodes.
 #' 
 #' @param m the number of desired nodes
 #' @param k the number of desired observed nodes
 #' @param n the number of desired rows in the data
-#' @return a signalgraph model
+#' @param ... additional arguments, including graph attributes
+#' @return a signalgraph object
 #' @export
-random_sg <- function(m, k, n){
+random_fit_sg <- function(m, k, n, max.iter = 1, ...){
   g <- rand_case(m, k, n) %>% 
-      {fitNetwork(.$g, .$data, graph_attr = list(activation = logistic))}
+      {fitNetwork(.$g, .$data, ...)}
 }
 
+#' Generate a random signalgraph object for data simulation
+#' 
+#' Produces a signalgraph objectwhere the values of the observed data and the fitted data are the same.  
+#' This is designed to produce a gold standard, which can simulate data, where upon a new model can be 
+#' fit on the simulated data, and the parameters of the standard and learned parameters of the new model
+#' can be compared.
+#' 
+#' @param m the number of desired nodes
+#' @param k the number of desired observed nodes
+#' @param n the number of desired rows in the data
+#' @param ... arguments past to fitNetwork, including graph attributes
+#' @return a signalgraph object
+#' @export
+sim_system <- function(m, k, n, ...){
+  g <- rand_case(m, k, n) %>%
+    {initializeGraph(.$g, .$data, ...)} 
+  fitted_vals <- get_fitted(g)
+  for(node in names(fitted_vals)){
+    if(V(g)[node]$is.observed) V(g)[node]$observed <- list(fitted_vals[, node])
+  }
+  g
+}
 
 #' Create an signal graph model of a multi-layer perceptron logic gate (unfit case).
 #' 

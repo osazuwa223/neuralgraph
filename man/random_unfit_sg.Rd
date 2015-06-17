@@ -4,7 +4,7 @@
 \alias{random_unfit_sg}
 \title{Generate a random unfit signalgraph object}
 \usage{
-random_unfit_sg(m, k, n = m * k + m)
+random_unfit_sg(m, k, n = m * k + m, ...)
 }
 \arguments{
 \item{m}{the number of desired nodes}

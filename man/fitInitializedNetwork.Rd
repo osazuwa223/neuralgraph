@@ -12,8 +12,6 @@ fitInitializedNetwork(g, epsilon = 1e-04, max.iter = 3)
 \item{epsilon}{when means square area falls below epsilon, stop}
 
 \item{max.iter}{maximum number of iterations}
-
-\item{verbose}{if TRUE print messages generated during optimization}
 }
 \description{
 Fit an initialized network

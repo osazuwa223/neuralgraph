@@ -116,7 +116,7 @@ getObjective <- function(initial_graph, v){
     prediction <- unlist(V(candidate_graph)[is.observed]$output.signal)
     observed <- unlist(V(initial_graph)[is.observed]$observed)
     sum((observed - prediction) ^ 2) + 
-      initial_graph$L1_pen * sum(E(candidate_graph)$weight) + 
+      initial_graph$L1_pen * sum(abs(E(candidate_graph)$weight)) + 
       initial_graph$L2_pen * sum(E(candidate_graph)$weight ^ 2)
   }
   lossFunction
@@ -162,8 +162,8 @@ getGradientFunction <- function(g, v){
 #' Closure for optimization with BFGS and specified gradient function
 getOptimizationFunction <- function(g, lossFunction, getGradient){
   if(!is.null(g$min.max.constraints)){
-    low <- g$min.max.constraints["min"] 
-    high <- g$min.max.constraints["max"]
+    low <- g$min.max.constraints[1] 
+    high <- g$min.max.constraints[2]
     names(low) <- names(high) <- NULL
     optimFunction <- function(wts){
       optim(wts, fn = lossFunction, gr = getGradient, method="L-BFGS-B",
@@ -180,8 +180,8 @@ getOptimizationFunction <- function(g, lossFunction, getGradient){
 #' CLosure for optimization with BFGS, no gradient function specified
 getOptimizationFunctionNG <- function(g, lossFunction){
   if(!is.null(g$min.max.constraints)){
-    low <- g$min.max.constraints["min"] 
-    high <- g$min.max.constraints["max"]
+    low <- g$min.max.constraints[1] 
+    high <- g$min.max.constraints[2]
     names(low) <- names(high) <- NULL
     optimFunction <- function(wts){
       optim(wts, fn = lossFunction, method="L-BFGS-B",

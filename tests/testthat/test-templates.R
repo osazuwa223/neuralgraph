@@ -46,3 +46,7 @@ test_that("get_gate replicates a hand made version", {
     initializeGraph(select(system, I1, I2, AND))
   expect_equal(V(g1)$name, V(g2)$name)
 })
+
+test_that("sim_system produces a model that looks like a fitted model", {})
+test_that("the fitted values and the observed values are the same", {})
+test_that()

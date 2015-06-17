@@ -1,91 +1,228 @@
 ---
-title: "Vignette Title"
-author: "Vignette Author"
-date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
+title: "Modeling the T-cell Signaling Network"
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---
 
-## T-Cell signalling dataset
-
-The T-cell signalling dataset consists of simultaneous measurements of 11 phosphorylated proteins and phospholypids derived from thousands of individual primary immune system cells, specifically T cells. When T cells are stimulated, the signal flows across a series of physical interactions between the measured proteins. The network of these interactions forms the T cell signalling pathway.  
-
-A directed acyclic network can be used to represent this signalling pathway.  The authors of this publication shared constructed a reference network, which I stored as an R object in my package [bnlearn](#): 
-
-```{r}
-library(dplyr)
-coefs <- centered_scaled_gauss %>% coef 
-parents <- melt(lapply(coef(centered_scaled_gauss), names))$value
-coefs %>%
-  melt %>%
-  mutate(child = L1, weight = value) %>%
-  mutate(parent = parents) %>%
-  select(parent, child, weight)
+```{r, message=FALSE}
+library(signalgraph)
 ```
 
-tcell_examples
+## Cell signaling is how cells sense and respond to their environment
 
+Cell signaling refers to how cells perceive and respond to events in their environment.  These environmental events, including detection of hormones, pathogens, and growth factors, provide an input signal.  Within the cell, the signal is passed along a series of *signaling events*, meaning physical interactions between proteins.  This culminates in a *signaling response*, such as activation of a gene.
 
-The loaded R object contains both the raw data and preprocessed data used in the original publication for network inference.  
+## Computational biologists discovering novel signaling events by comparing known signaling mechanisms to mechanisms identified by machine learning
 
-The data cotains information on interventions that provide signal to the network as well as activate and inhibit individual proteins.  These interventions enable network inference to provide edges with a causal interpretation. Run *?data* for more background on the data.
+The cascade of signaling events can be represented as a directed network called a *signaling network*, where nodes are proteins and edges reflect signaling events.  The disregulation of cell signaling, or the "rewiring" of the signaling network, has been implicated in many processes of disease, including cancer.  
 
-```{r}
-raw <- tcells$raw
-processed <- tcells$processed
+Many experimentalists across time and many labs have discovered various signaling events across different species, tissues, and contexts.  Biocurators assemble these into models of signaling networks that provide compact and computable models of current human knowledge about real signaling networks. These *reference network* models are available in public sources such as [KEGG](www.kegg.jp).  One example from KEGG is the MAPK signaling pathway, a signaling network that turns on cell growth and proliferation:
+
+![MapK](http://i.imgur.com/4OHHokQ.png)
+
+Experimentalists study signaling by measuring the activity of signaling proteins.  Computational biologists apply machine learning methods for learning graphical structures to this data.  The objective is to discover *novel signaling events*, meaning signaling events occuring in the samples/patients that are unexpected given prior knowledge about the signaling mechanism.  In essence, they look for edges in the *learned network* that are not present in the reference network, providing hypotheses for how the signaling network has been *rewired* in the subject.  
+
+![signaling event](http://i.imgur.com/gmRr6me.png)
+
+The experimentalist validates these hypotheses in follow up experiments.  
+
+In summary, the workflow is as follows;
+
+1. Collect data
+2. Use machine learning to build a network structure from the data
+3. Identify edges not in the reference network
+4. Validate the presence of such edges in follow up experiments
+
+## The T-cell dataset is a benchmark dataset for learning signaling network structure from data
+
+The T-cell signaling dataset consists of simultaneous fluorescence flow cytometry measurements of 11 phosphorylated proteins and phospholypids derived from thousands of individual primary immune system cells, specifically T-cells.  
+
+Before measurement, the cells were exposed to stimuli that introduced signal into the signaling network.  Each row of the dataset is a cell, each column a protein, and each value corresponds to the signaling activity of a given protein that was measured for a given cell.  The dataset was published in a 2005 study published in Nature, Sachs et al.
+
+In the publication the authors validated the learned network edges against the following validation network, comprised of signaling events well-described in the biomedical literature.  
+
+```{r validation}
+data(tcell_examples, package = "bninfo")
+bnlearn::graphviz.plot(tcell_examples$net, main = "T-cell Signaling Validation Network")
 ```
 
-The data frame *processed* has intervention information in the INT column.
+My package [*bninfo*](https://github.com/robertness/bninfo) walks through an [R workflow](https://github.com/robertness/bninfo/blob/master/vignettes/performance.Rmd) for repeating the network inference.  The algorithm is as follows:
 
-## Network inference experiment workflow
+1. Generate 500 random networks
+2. For the ith network
+  1. Resample the data with replacement
+  2. Score the ith network against the resampled data using a likelihood-based metric that incorporates the intervention data.
+  3. Using this as the starting network, conduct a Tabu search that compares candidate network structures.
+3. For each edge that appeared in the 500 searches, weight each edge by the proportion of times in 500 that it appeared in a search result.
 
-The workflow for network inference experiments in this context is as follows:
+The following demonstrates the workflow on the dataset the 2005 publication authors used to fit their original publication.  This data was discretized into 3 levels; 0 (low), .5 (medium), and 1 (high).  While this loses information on the range of the values for each protein, the discretization was conducted such that cross-protein relationships between the quantiles of protein values was preserved.
 
-1 Select proteins
-2 Quantify data
-3 Apply network inference with model averaging
-4 Evaluate strength of edges
-5 Validate both highly ranked and interesting edges in follow up experiments
-
-Mario Scutari describes an R-based workflow on this T-cell data.  Using *bnlearn* 
-
-```{r}
-scutari_analysis <- function(df){
-  int_array <- as.numeric(df$INT); df$INT <- NULL  # Pull out the intervetions, so only the proteins remain.
-  int_arg <- lapply(seq_along(df), function(i){
-   which(int_array == i)}) %>%
-   structure(names =  names(df))
-   random.graph(nodes = names(df), # Generate random graph
-                               method = "melancon",
-                               num = 500,
-                               burn.in = 10^5,
-                               every = 100) %>%
-    lapply(function(net){ # Fit Tabu search to each graph
-      tabu(df, score = "mbde", exp = int_arg, iss = 10, start = net, tabu = 50)
-    })  %>%
-    custom.strength(nodes = names(df)) # Aggregate averaging results
-}
-model_averaging_results <- scutari_analysis(processed)
-
+```{r, message=FALSE}
+library(bninfo)
+data(tcells, package = "bninfo")
+tcell_data <- tcells$processed$.data
+interventions <- tcells$processed$interventions
+```
+```{r, eval=FALSE}
+averaging_tabu <- causal_learning(tcell_data, interventions, "tabu", iss = 10, tabu = 50, resample = TRUE)
+```
+```{r, echo=FALSE}
+data(tcell_examples, package = "bninfo")
+averaging_tabu <- tcell_examples$averaging_tabu
 ```
 
-## Description of experiment
+Example of edge weights:
 
-Assume Sachs is ground truth
-My theory tells me that when the input network has spurious edges, my model will perform well by giving weak weights. Using a Gaussian model, or model averaging, some of Sach's edges will be weak.  The edges exist, but 
-signal flow is low.  I want those weak edges in the network so I can shrink them.  
-Suppose I remove Mek and Raf i.e. the Mapk pathway.  Then the influence on Erk then comes only PKA.  
-I am supposed to be quantifying different proteins.
-We pick different sets of nodes, and for each edge plot a roc curve
+```{r}
+class(averaging_tabu)
+sample_n(averaging_tabu, 10) %>%
+  mutate(weight = strength * direction)
+```
 
-## Network inference workflow
+This is an object of the class "bn.strength" from the *bnlearn* package.  The product "strength" and "direction" columns is the proportion of times the directed edge appeared.  I manually calculate this product in the "weight" column.
 
-Scutari book details an effective workflow for network inference on this dataset using the bnlearn package.  
+The *strength_plot* function visualizes the results of model averaging.  A "consensus network" is created from all edges with weight greater than a threshold.  Below edges in the averaged network are plotted against the reference network, green edges correspond to detected edges (true positives), blue edges to undetected edges (false negatives).  The thickness of the edge corresponds to the weight -- the thicker the edge, the more evidence for its presence in the data.
+
+```{r, warning=FALSE}
+strength_plot(averaging_tabu, tcell_examples$net, plot_reference = TRUE, threshold = .5)
+```
+
+By visualizing against the consensus network, we can see incorrectly detected edges (false positives) in red. 
+
+```{r, warning=FALSE}
+strength_plot(averaging_tabu, tcell_examples$net, plot_reference = FALSE, threshold = .5)
+```
+
+As is typical in machine learning, we want a balance between minimizing false positives and maximizing true positives.  In  *bninfo* we can visualize this tradeoff with an ROC curve, with help of the *ROCR* package.
+
+```{r, message=FALSE}
+library(ROCR)
+averaging_tabu %>% # Grab averaging results
+  getPerformance(tcell_examples$net) %$% # Get performance against reference network
+  prediction(prediction, label) %>% # Convert to ROCR 'prediction' object
+  performance("tpr", "fpr") %>% # Calculate true positive rate and false positive rate statistics
+  plot(main = "ROC curve on signaling event detection")
+```
+
+## Selection of proteins for measurement in causal inference
+
+To understand how signal flows through this pathway, I introduce nodes representing the introduction of signal.  I model the specific activations by adding two binary (0, 1) nodes "PKC signal" and "PKA signal".  There is no 'inactivated pathway' baseline, so I create a "general signal" dummy node that acts as a baseline and set its values to 0.
+
+```{r valid}
+data(tcells, package = "signalgraph")
+validated_net <- tcells$validated_net
+sg_viz(validated_net, show_biases = FALSE)
+```
+
+Using *sg_viz* to view, the signal is introduced in the orange nodes, and the green nodes are proteins that are observed in the data.  All the nodes are green because this validation network was constructed to include all the proteins they measured.
+
+Often however, data is available on a smaller set of proteins than are included in the network.  Consider the case of proteins Raf, Erk, Mek, and PIP3 missing in the pathway, as indicated in blue.  
+
+```{r}
+sg_viz(tcells$subset_example, show_biases = FALSE)
+```
+
+These are downstream of where signal is introduced, but upstream of at least one other protein which might be used to quantify signaling response.  Each of them has one outgoing edge.
+
+Since these proteins both recieve and exhert causal influence, it is important that they be included in the input data for the causal inference workflow.  Suppose however, that under constrained resources, one can select only one or two but not all of these proteins.  
+
+A naive approach would be to select proteins based on the graph topology only, by ranking them with a graph-theoric method such as betweenness centrality where all of the edge weights are 1.
+
+```{r}
+validated_net %>%
+  betweenness(V(.), weight = rep(1, ecount(.))) %>%
+  .[c("Erk", "Mek", "PIP3", "Raf")] %>%
+  sort(decreasing = TRUE)
+```  
+
+So according to this metric, Mek should be prioritized followed by Erk, Raf, then PIP3.
+
+*Signalgraph* can incorporate both graph topology and available data for a subset of the proteins. 
+
+First I fit the *signalgraph* model on the truncated network multiple times and acquire a set of fits.  I then recalculate the betweenness score using the average of the weights across fits. 
+
+```{r}
+net_list <- tcells$net_list
+lapply(tcells$net_list, function(g){
+  betweenness(g, weight = abs(E(g)$weight)) %>%
+    .[c("Erk", "Mek", "PIP3", "Raf")] %>%
+    sort(decreasing = TRUE)
+})
+```
 
 
+```{r, echo=FALSE}
+mek_averaging <- tcells$subset_averaging$mek_averaging
+mek_erk_averaging <- tcells$subset_averaging$mek_erk_averaging
+erk_averaging <- tcells$subset_averaging$erk_averaging
+erk_raf_averaging <- tcells$subset_averaging$erk_raf_averaging
+```
 
+```{r, eval = FALSE}
+base_proteins <- c("Akt" , "Jnk", "P38", "PIP2", "PKA", "PKC", "Plcg")
+mek_averaging <- tcell_data[, c(base_proteins, "Mek")] %>%
+  causal_learning(interventions, "tabu", iss = 10, tabu = 50, resample = TRUE)
+erk_averaging <- tcell_data[, c(base_proteins, "Erk")] %>%
+  causal_learning(interventions, "tabu", iss = 10, tabu = 50, resample = TRUE)
+```
 
+```{r}
+mek_averaging %>%
+  getPerformance(tcell_examples$net) %$% # Get performance against reference network
+  prediction(prediction, label) %>% # Convert to ROCR 'prediction' object
+  performance("tpr", "fpr") %>% # Calculate true positive rate and false positive rate statistics
+  plot(main = "Signaling event detection with top ranked protein", col = "blue")
+erk_averaging %>%
+  getPerformance(tcell_examples$net) %$% # Get performance against reference network
+  prediction(prediction, label) %>% # Convert to ROCR 'prediction' object
+  performance("tpr", "fpr") %>% # Calculate true positive rate and false positive rate statistics
+  plot(main = "ROC curve on signaling event detection", add = TRUE, col = "green")
+legend("bottomright", c("naive approach", "proposed approach"), lwd = c(1, 1), col = c("blue", "green"))
+```
 
+```{r, eval = FALSE}
+erk_raf_averaging <- tcell_data[, c(base_proteins, "Erk", "Raf")] %>%
+  causal_learning(interventions, "tabu", iss = 10, tabu = 50, resample = TRUE)
+mek_erk_averaging <- tcell_data[, c(base_proteins, "Mek", "Erk")] %>%
+  causal_learning(interventions, "tabu", iss = 10, tabu = 50, resample = TRUE)
+```
+
+```{r}
+mek_erk_averaging %>%
+  getPerformance(tcell_examples$net) %$% # Get performance against reference network
+  prediction(prediction, label) %>% # Convert to ROCR 'prediction' object
+  performance("tpr", "fpr") %>% # Calculate true positive rate and false positive rate statistics
+  plot(main = "Signaling event detection with top two proteins", col = "blue")
+erk_raf_averaging %>%
+  getPerformance(tcell_examples$net) %$% # Get performance against reference network
+  prediction(prediction, label) %>% # Convert to ROCR 'prediction' object
+  performance("tpr", "fpr") %>% # Calculate true positive rate and false positive rate statistics
+  plot(main = "ROC curve on signaling event detection", add = TRUE, col = "green")
+legend("bottomright", c("naive approach", "proposed approach"), lwd = c(1, 1), col = c("blue", "green"))
+```
+
+## Signalgraph can select proteins for network inference
+
+The ultimate goal of network inference is to predict novel edges.  Suppose a novel edge A -> B exists.  The causal network learning algorithm, as described above, ranks that edge with model averaging; it assigns a weight based on how frequently it appears across as set of individual learned networks.   The weight of the edge depends on what proteins are measured.  Firstly, A and B must both be measured in the input data or the edge obviously can't be detected and is effectively assigned a weight of 0.  Secondly, the measurement (or lack thereof) of other proteins affect the likelihood calculation of an edge, and thus its presence in learning results.   
+
+Therefore, the method of selecting proteins for measurement determines performance in detecting a novel edge with causal network learning. 
+
+We simulated 500 networks and compared naive topological selection to topology+data  selection in how they enable recovery of an chosen novel edge.  The simulation uses the following algorithm:
+
+1. Create a 12 protein model and use it to simulate input data where 5 proteins are unobserved. 
+2. Select an edge as the novel edge to be discover and remove it from the model's network structure.  Use the truncated network as the model input.
+3. Use the topology only and signalgraph approaches to select two proteins.
+4. For each approach, add the protein back into the data and apply causal inference algorithm.
+5. Compare the score of the novel edge.  
+
+Repeating this algorithm 100 times, I obtained the following distributions of novel edge scores.
+
+```{r}
+library(ggplot2)
+g <- ggplot(tcells$sim_results, aes(x = score)) +
+  geom_density(aes(fill=approach ), alpha = 0.5) + 
+  labs(title = "Distributions of Novel Edge Scores") 
+plot(g)
+```

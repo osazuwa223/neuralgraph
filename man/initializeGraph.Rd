@@ -13,7 +13,8 @@ initializeGraph(g, data, graph_attr = NULL)
 
 \item{graph_attr}{list of graph attributes.  Graph attributes include:
 \itemize{
- \item{penalty}{penalized least squares error penalty parameter value}
+ \item{L1_pen}{penalized least squares error L1 penalty parameter value}
+ \item{L2_pen}{penalized least squares error L2 penalty parameter value}
  \item{activation}{the activation function (this actually is an R function), defaults to logistic.}
  \item{activation.prime}{The derivative of the activation function, used in gradient calculation. Defaults to NULL}
  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}

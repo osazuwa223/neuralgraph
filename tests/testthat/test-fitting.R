@@ -8,7 +8,7 @@ test_that("despite not working a single node graph input, regression on a consta
             long_test(option)
             g_const <- graph.empty(2) %>% nameVertices %>% `+`(edge(c("2", "1"))) 
             data2 <- data.frame(runif(10), rep(1, 10)) %>% `names<-`(c("1", "2"))
-            fitNetwork(g_const, data2)
+            fitNetwork(g_const, data2, max.iter = 1)
           })
 
 test_that("in an initialized neural net style model where the predicted and observed output are 
@@ -19,9 +19,8 @@ test_that("in an initialized neural net style model where the predicted and obse
   g <- random_unfit_sg(10, 3)
   #Set the observed values exactly to the predicted values
   V(g)[is.observed]$observed <- V(g)[is.observed]$output.signal
-  output.df[, paste(outputs)] <- unlist(V(g)[is.observed]$observed)
   # After fitting I expect no changes
-  g2 <- fitInitializedNetwork(g, .05, 3)
+  g2 <- fitInitializedNetwork(g, .05, max.iter = 1)
   # The difference between predicted and observed should still be 0
   expect_equal(getLoss(g2), 0, .001)
   # The weights should be unchanged
@@ -43,7 +42,7 @@ test_that("multi-layer model has less loss than nls given it has more parameters
   set.seed(30)
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
     {initializeGraph(., data = dplyr::select(titan, age, fare, survived))}
-  fit <- fitInitializedNetwork(g,  epsilon = .01)
+  fit <- fitInitializedNetwork(g,  epsilon = .01, max.iter = 1)
   nls_fit <-  nls(survived ~ logistic(w0 + w1 * age + w2 * fare), data = titan, 
                   start = as.list(structure(E(g)[to("H11")]$weight, names = c("w1", "w2", "w0"))))
   expect_less_than(get_deviance(fit), deviance(nls_fit))
@@ -60,17 +59,26 @@ test_that("model should perform a reasonable MLP prediction on a toy problem wit
     `names<-`(c("I1", "I2")) %>%
     mutate(AND = I1 * I2)
     #mutate(AND = I1 * I2, OR = (I1 + I2 > 0) * 1, NOR = (I1 + I2 == 0) * 1)
-  fit <- fitNetwork(g, select(system, I1, I2, AND))
+  fit <- fitNetwork(g, select(system, I1, I2, AND), max.iter = 1)
   expect_equal(unlist(V(fit)["AND"]$output.signal), unlist(V(fit)["AND"]$observed), tolerance = .1)
 })
 
-test_that("penalized least squares has less sum squares of fitted weight than unpenalized.", {
+test_that("L1 norm with super high penalty should bring weights from non-bias terms to 0", {
+  long_test(option)
+  set.seed(30)
+  g_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived),graph_attr = list(L1_pen = 10), epsilon = .01, max.iter = 1)}
+  expect_equal(sum(round(E(g_pen)[from(V(g)[!is.bias])]$weight, 4)), 0)  
+})
+
+
+test_that("L2 norm has less sum squares of fitted weight than unpenalized.", {
   long_test(option)
   set.seed(30)
   g_structure <- mlp_graph(c("age", "fare"), "survived", c(4, 3))
-  g_no_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), epsilon = .01)}
-  g_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), L2_pen = .05, epsilon = .01)}
+  g_no_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), epsilon = .01, max.iter = 1)}
+  g_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived),graph_attr = list(L2_pen = 3), epsilon = .01, max.iter = 1)}
   expect_less_than(sum(E(g_pen)$weight^2), sum(E(g_no_pen)$weight^2))  
 })
+
 
 

@@ -156,12 +156,12 @@ test_that("resetUpdateAttributes changes updated structure of all nodes EXCEPT r
 })
 test_that("initializeGraph returns a graph structure ready for fitting.", {
   long_test(option)
-  g <- random_sg(5, 4, 10) # This generates a graph, and calls 'initializeGraph in the final step.
+  g <- random_unfit_sg(3, 2, 10) # This generates a graph, and calls 'initializeGraph in the final step.
   # Fails if you initialize twice
   g_data <- recover_design(g)
   expect_error(
     initializeGraph(g, g_data),
-    "This graph structure seems to have already been updated."
+    "Input graph has graph attributes reserved for signal graph."
   )
   # Need weight, name, and updated edge attributes.
   list.edge.attributes(g) %>%
@@ -170,10 +170,11 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
   # updated attribute should all be false
   expect_true(!E(g)$updated %>% all)
   # Need the following vertex attributes 
-  list.vertex.attributes(g) %>%
-    identical(c("name", "type", "input.signal", "f.prime.input",
-                "output.signal", "observed", "updated")) %>%
-    expect_true
+  setdiff(list.vertex.attributes(g), c("name", "input.signal", "f.prime.input", "output.signal",
+                                       "observed", "is.bias", "is.observed", "is.hidden", 
+                                       "is.root", "is.leaf", "updated")) %>%
+  {length(.) == 0} %>%
+  expect_true
   # The input.signal, f.prime.input, output.signal, and observed values should
   # should be numerics.
   lapply(
@@ -189,16 +190,17 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
     }
   )
   # Graph attributes should be activation, activation.prime, min.max.constraints
-  list.graph.attributes(g) %>%
-    identical(c("L1_pen", "L2_pen", "activation", "activation.prime", "min.max.constraints", "n")) %>%
+  setdiff(list.graph.attributes(g), c("activation", "L1_pen", "L2_pen", "activation", 
+                              "activation.prime", "min.max.constraints", "n")) %>%
+    {length(.) == 0} %>%
     expect_true
 })
 
 test_that("fitNetwork returns a graph structure", {
   long_test(option)
-  g <- random_sg(3, 2, 10)
+  g <- random_fit_sg(3, 2, 10, max.iter = 1)
   observed <- recover_design(g)
-  g <- fitNetwork(g, observed, verbose=T)
+  g <- fitNetwork(g, observed, max.iter = 1)
   expect_true(class(g) == "igraph")
 })
 
@@ -231,5 +233,5 @@ test_that("test that if the updated status of biases/roots and input nodes ever 
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
     {initializeGraph(., data = dplyr::select(titan, age, fare, survived))}
   V(g)[is.root]$updated <- FALSE
-  expect_error(fitInitializedNetwork(g,  epsilon = .01, verbose = T), "Inputs or biases had FALSE for updated.")
+  expect_error(fitInitializedNetwork(g,  epsilon = .01, max.iter = 1), "Inputs or biases had FALSE for updated.")
 })

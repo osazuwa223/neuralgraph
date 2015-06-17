@@ -11,19 +11,19 @@ calculateVals <- function(g, v){
   weight_vector <- matrix(E(g)[to(v)]$weight, ncol=1)
   linear_combination <- iparents(g, v) %>%
     ensure_that(length(.) > 0) %>%
-{do.call("cbind", V(g)[.]$output.signal)} %>%
-  `%*%`(weight_vector) %>% 
-  as.numeric %>%
+    {do.call("cbind", V(g)[.]$output.signal)} %>%
+    `%*%`(weight_vector) %>% 
+    as.numeric %>%
+    ensure_that(checkVector(.))
+  V(g)[v]$input.signal <- list(linear_combination) # Add it to input signal attribute
+  if(!is.null(g$activation.prime)){
+    V(g)[v]$f.prime.input <- list(g$activation.prime(linear_combination)) # Apply f prime and add to the f prime input signal attribute
+  }
+  output <- g$activation(linear_combination) # apply activation function and add it to activation function attribute
+  V(g)[v]$output.signal <- list(output)
+  V(g)[v]$output.signal %>% unlist %>% 
   ensure_that(checkVector(.))
-V(g)[v]$input.signal <- list(linear_combination) # Add it to input signal attribute
-if(!is.null(g$activation.prime)){
-  V(g)[v]$f.prime.input <- list(g$activation.prime(linear_combination)) # Apply f prime and add to the f prime input signal attribute
-}
-output <- g$activation(linear_combination) # apply activation function and add it to activation function attribute
-V(g)[v]$output.signal <- list(output)
-V(g)[v]$output.signal %>% unlist %>% 
-  ensure_that(checkVector(.))
-g
+  g
 }
 
 #' Update the 'signal' at each vertex in a signalgraph object
@@ -79,7 +79,6 @@ getDependentEdges <- function(g, e){
 #' @param g an igraph object initialized to an unfit signalgraph object
 #' @param epsilon when means square area falls below epsilon, stop
 #' @param max.iter maximum number of iterations
-#' @param verbose if TRUE print messages generated during optimization
 fitInitializedNetwork <- function(g, epsilon = 1e-4, max.iter = 3){
   mse_last <-  getMSE(g)
   for(i in 1:max.iter){
@@ -91,7 +90,7 @@ fitInitializedNetwork <- function(g, epsilon = 1e-4, max.iter = 3){
          message("Weights: ", paste(round(E(g)$weight, 3), collapse =", "), "\n")
     )
     mse <- getMSE(g) %T>% # Get the new MSE
-      {message("Mean Squared Error: ", round(., 3), "\n")} 
+      {message("Mean Squared Error: ", round(., 6), "\n")} 
     if(abs(mse - mse_last) < epsilon){
         message("Algorithm stabilized in ", i, " iterations.")
         return(g) # Stop if improvement is super small.
@@ -116,7 +115,6 @@ g
 #'  }
 #' @param epsilon when means square area falls below epsilon, stop
 #' @param max.iter maximum number of iterations
-#' @param verbose if TRUE print messages generated during optimization
 #' @return A fitted signalgraph object.
 #' @export
 fitNetwork <- function(g, data, graph_attr = NULL, epsilon = 1e-3, max.iter = 3){
