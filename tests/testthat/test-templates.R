@@ -4,6 +4,10 @@ devtools::load_all("../../R/templates.R")
 #devtools::load_all("R/templates.R")
 context("templates for commmonly used signal graph models")
 library(dplyr)
+
+
+
+
 test_that("get_gate with all outputs works as expected", {
   gates <- c("AND", "OR", "NAND", "NOR", "XOR", "XNOR") 
   g <- get_gate(layers = c(2, 3))
@@ -43,10 +47,10 @@ test_that("get_gate replicates a hand made version", {
     mutate(AND = (I1 * I2 == 1) * 1)
   g1 <- get_gate("AND", c(3, 2))
   g2 <- mlp_graph(c("I1", "I2"), "AND", c(3, 2)) %>% #Use a 2 layer MLP
-    initializeGraph(select(system, I1, I2, AND))
+    initializeGraph(select(system, I1, I2, AND), fixed = c("I1", "I2"))
   expect_equal(V(g1)$name, V(g2)$name)
 })
 
 test_that("sim_system produces a model that looks like a fitted model", {})
 test_that("the fitted values and the observed values are the same", {})
-test_that()
+

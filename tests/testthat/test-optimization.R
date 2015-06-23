@@ -16,7 +16,7 @@ titan <- filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not 
 ###########################################################################################
 # Univariate no bias, no hidden layer case
 g <- mlp_graph("age", "survived") %>%
-  initializeGraph(select(titan, age, survived)) %>%
+  initializeGraph(select(titan, age, survived), fixed = "age") %>%
   {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
   updateSignals
@@ -30,10 +30,10 @@ test_that("prediction from logistic function works as expected.", {
 ###########################################################################################
 # Multivariate with hidden layers
 g <- mlp_graph(c("age", "fare"), "survived", layers = c(3, 2)) %>%
-  initializeGraph(select(titan, age, fare, survived))
+  initializeGraph(select(titan, age, fare, survived), fixed = c("age", "fare"))
 
 test_that("prediction from logistic function works as expected.", {
-  linear_combination <- V(g)[c("age", "fare", "bias_3")]$output.signal %>% 
+  linear_combination <- V(g)[c("age", "fare", "bias_H11")]$output.signal %>% 
     {do.call("cbind", .)} %>%
     `%*%`(matrix(c(-.5, -.5, -.5), ncol = 1)) %>% 
     as.numeric

@@ -4,12 +4,10 @@
 \alias{rand_case}
 \title{Test Case: Random graph and matching data}
 \usage{
-rand_case(m, k, n = m * k + m)
+rand_case(m, n = m * m + m)
 }
 \arguments{
 \item{m}{the number of desired nodes}
-
-\item{k}{the number of desired observed nodes}
 
 \item{n}{the number of desired rows in the data}
 }
@@ -17,7 +15,7 @@ rand_case(m, k, n = m * k + m)
 A list of two elements, graph and data.
 }
 \description{
-Generates an igraph object and a corresponding dataset.  Used to
-randomly generate test cases
+Generates an igraph object and a corresponding dataset.  A number of unobserved vertices will
+be chosen at random.  Used to randomly generate test cases.
 }
 

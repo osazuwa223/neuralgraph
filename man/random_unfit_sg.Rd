@@ -4,14 +4,16 @@
 \alias{random_unfit_sg}
 \title{Generate a random unfit signalgraph object}
 \usage{
-random_unfit_sg(m, k, n = m * k + m, ...)
+random_unfit_sg(m, n = m * m + m, no_fixed = FALSE, ...)
 }
 \arguments{
 \item{m}{the number of desired nodes}
 
-\item{k}{the number of desired observed nodes}
-
 \item{n}{the number of desired rows in the data}
+
+\item{no_fixed}{boolean if TRUE then all vertices are treated as random. Defaults to FALSE}
+
+\item{num_fixed}{the number of vertices treated as fixed variables.}
 }
 \value{
 an initialized, but unfit (unoptimized) signal graph model

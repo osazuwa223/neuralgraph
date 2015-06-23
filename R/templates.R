@@ -1,22 +1,17 @@
 #' Test Case: Random graph and matching data
 #' 
-#' Generates an igraph object and a corresponding dataset.  Used to 
-#' randomly generate test cases
+#' Generates an igraph object and a corresponding dataset.  A number of unobserved vertices will 
+#' be chosen at random.  Used to randomly generate test cases.
 #' 
 #' @param m the number of desired nodes
-#' @param k the number of desired observed nodes
 #' @param n the number of desired rows in the data
 #' @return A list of two elements, graph and data.
-rand_case <- function(m, k, n = m * k + m){
-  stopifnot(m > k)
+rand_case <- function(m, n = m * m + m){
   g <- lucy::generateMultiConnectedDAG(m) %>% nameVertices
   roots <- V(g)[get_roots(g)]$name 
   leaves <- V(g)[get_leaves(g)]$name
   num_roots_leaves <- length(c(roots, leaves))
-  if(k < length(c(roots, leaves))){
-    warning("k too low, setting k such that only roots and leaves are observed.")
-    k <- num_roots_leaves
-  }
+  k <- sample(num_roots_leaves:m, 1) # Number of observed nodes
   data <- c(lapply(roots, function(root) runif(n)), 
             lapply(leaves, function(leaf) runif(n))) %>%
     as.data.frame %>%
@@ -39,13 +34,18 @@ rand_case <- function(m, k, n = m * k + m){
 #' then a data frame is simulated for only those nodes.
 #' 
 #' @param m the number of desired nodes
-#' @param k the number of desired observed nodes
 #' @param n the number of desired rows in the data
+#' @param num_fixed the number of vertices treated as fixed variables.
+#' @param no_fixed boolean if TRUE then all vertices are treated as random. Defaults to FALSE
 #' @return an initialized, but unfit (unoptimized) signal graph model
 #' @export
-random_unfit_sg <- function(m, k, n = m * k + m, ...){
-  g <- rand_case(m, k, n) 
-  initializeGraph(g$g, g$data, ...)
+random_unfit_sg <- function(m, n = m * m + m, no_fixed = FALSE, ...){
+  g <- rand_case(m, n)
+  if(no_fixed){
+    return(initializeGraph(g$g, g$data, ...))
+  }
+  roots <- V(g$g)[get_roots(g$g)]$name
+  initializeGraph(g$g, g$data, fixed = roots, ...)
 }
 
 #' Generate a random fitted signalgraph object
@@ -55,14 +55,18 @@ random_unfit_sg <- function(m, k, n = m * k + m, ...){
 #' so data is simulated for only those nodes.
 #' 
 #' @param m the number of desired nodes
-#' @param k the number of desired observed nodes
 #' @param n the number of desired rows in the data
 #' @param ... additional arguments, including graph attributes
+#' @param no_fixed boolean if TRUE then all vertices are treated as random. Defaults to FALSE
 #' @return a signalgraph object
 #' @export
-random_fit_sg <- function(m, k, n, max.iter = 1, ...){
-  g <- rand_case(m, k, n) %>% 
-      {fitNetwork(.$g, .$data, ...)}
+random_fit_sg <- function(m, n, max.iter = 1, no_fixed = FALSE,...){
+  g <- rand_case(m, n)
+  if(no_fixed){
+    return(fitNetwork(g$g, g$data, ...))
+  }
+  roots <- V(g$g)[get_roots(g$g)]$name
+  fitNetwork(g$g, g$data, fixed = roots, ...)
 }
 
 #' Generate a random signalgraph object for data simulation
@@ -73,13 +77,12 @@ random_fit_sg <- function(m, k, n, max.iter = 1, ...){
 #' can be compared.
 #' 
 #' @param m the number of desired nodes
-#' @param k the number of desired observed nodes
 #' @param n the number of desired rows in the data
 #' @param ... arguments past to fitNetwork, including graph attributes
 #' @return a signalgraph object
 #' @export
-sim_system <- function(m, k, n, ...){
-  g <- rand_case(m, k, n) %>%
+sim_system <- function(m, n, ...){
+  g <- rand_case(m, n) %>%
     {initializeGraph(.$g, .$data, ...)} 
   fitted_vals <- get_fitted(g)
   for(node in names(fitted_vals)){
@@ -113,7 +116,7 @@ get_gate <- function(outputs = "all", layers=NULL){
               XNOR = (I1 == I2) * 1)
   g <- igraphr::mlp_graph(inputs = c("I1", "I2"),
                     outputs = gates, layers = layers) %>%
-    initializeGraph(logic_gates[, c("I1", "I2", gates)])
+    initializeGraph(logic_gates[, c("I1", "I2", gates)], fixed = c("I1", "I2"))
   if(!identical(outputs, "all")){
     output_nodes <- c(V(g)[c("I1", "I2")], V(g)[name %in% outputs])
     exclusion_nodes <- V(g)[is.observed]  %>% setdiff(output_nodes)
@@ -125,6 +128,3 @@ get_gate <- function(outputs = "all", layers=NULL){
   }
   nameEdges(g) 
 }
-
-
-

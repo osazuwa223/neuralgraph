@@ -117,8 +117,8 @@ g
 #' @param max.iter maximum number of iterations
 #' @return A fitted signalgraph object.
 #' @export
-fitNetwork <- function(g, data, graph_attr = NULL, epsilon = 1e-3, max.iter = 3){
+fitNetwork <- function(g, data, fixed = NULL, graph_attr = NULL, epsilon = 1e-3, max.iter = 3){
   g %>% 
-    initializeGraph(data, graph_attr) %>%
+    initializeGraph(data, fixed, graph_attr) %>%
     fitInitializedNetwork(epsilon, max.iter)
 }

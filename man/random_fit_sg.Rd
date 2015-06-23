@@ -4,14 +4,14 @@
 \alias{random_fit_sg}
 \title{Generate a random fitted signalgraph object}
 \usage{
-random_fit_sg(m, k, n, max.iter = 1, ...)
+random_fit_sg(m, n, max.iter = 1, no_fixed = FALSE, ...)
 }
 \arguments{
 \item{m}{the number of desired nodes}
 
-\item{k}{the number of desired observed nodes}
-
 \item{n}{the number of desired rows in the data}
+
+\item{no_fixed}{boolean if TRUE then all vertices are treated as random. Defaults to FALSE}
 
 \item{...}{additional arguments, including graph attributes}
 }

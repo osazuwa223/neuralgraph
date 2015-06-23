@@ -4,12 +4,10 @@
 \alias{sim_system}
 \title{Generate a random signalgraph object for data simulation}
 \usage{
-sim_system(m, k, n, ...)
+sim_system(m, n, ...)
 }
 \arguments{
 \item{m}{the number of desired nodes}
-
-\item{k}{the number of desired observed nodes}
 
 \item{n}{the number of desired rows in the data}
 

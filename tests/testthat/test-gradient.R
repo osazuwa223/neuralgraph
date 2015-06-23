@@ -35,7 +35,7 @@ titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>
   df
 
 g <- mlp_graph("age", "survived") %>%
-  initializeGraph(select(titan, age, survived)) %>%
+  initializeGraph(select(titan, age, survived), fixed = "age") %>%
   {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
   updateSignals
@@ -139,7 +139,7 @@ test_that("gradient should be giving expected values as numeric derivative",{
 
 g1 <- get_gate(outputs = "AND", layers = c(3, 2))
 g2 <- mlp_graph(c("age", "fare"), "survived", c(5, 5)) %>%
-  initializeGraph(select(titan, age, fare, survived))
+  initializeGraph(select(titan, age, fare, survived), fixed = NULL)
 
 test_that("doChainRule errors in the case when the vertex value does not depend on the weight", {
   skip("a bug here but ignoring gradient descent for now")

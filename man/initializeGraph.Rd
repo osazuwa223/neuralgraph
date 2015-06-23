@@ -4,12 +4,15 @@
 \alias{initializeGraph}
 \title{Create an signal graph object that is unfitted}
 \usage{
-initializeGraph(g, data, graph_attr = NULL)
+initializeGraph(g, data, fixed = NULL, graph_attr = NULL)
 }
 \arguments{
 \item{g}{igraph object. The vertices must be named.}
 
 \item{data}{a data frame. All of the names in the data from must match a vertex name.}
+
+\item{fixed}{character array, vertex names of fixed variables in data. Defaults to NULL meaning all variables
+in the data are treated as random.}
 
 \item{graph_attr}{list of graph attributes.  Graph attributes include:
 \itemize{
@@ -26,7 +29,8 @@ A graph with all the attributes needed to fit the neural network model.
 \description{
 igraph objects have three kinds attributes; graph attributes, edge attributes, and vertex attributes.
 This function builds a signalgraph object from an igraph object using these attributes.  First the
-graph attributes are added, then vertex attributes.  The model takes a data frame as an input.
+graph attributes are added, then vertex attributes.  The model takes a data frame as an input. Fixed
+variables have to be named in the fixed argument, or else variables will be considered random.
 The name of each variable in the data must match a vertex name in the graph.  The values for a given variable
 are added as a vertex attribute to that vertex.  Next, edge weights are added as edge attributes.  Finally,
 the weights are updated.

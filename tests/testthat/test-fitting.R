@@ -1,6 +1,6 @@
 devtools::load_all("../../R/tools.R")
 #devtools::load_all("R/tools.R")
-option <- TRUE
+option <- FALSE
 context("Models gets reasonable fits")
 
 test_that("despite not working a single node graph input, regression on a constant works if the constant

@@ -1,0 +1,7 @@
+load("inst/extdata/graph.rda")
+load("inst/extdata/observationData.rda")
+library(signalgraph)
+devtools::load_all("R/optimization.R")
+g <- initializeGraph(g, obs_data, graph_attr = list(activation = identity))
+g <- fitInitializedNetwork(g, obs_data)
+sg_viz(g)

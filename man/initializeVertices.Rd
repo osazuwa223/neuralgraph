@@ -4,10 +4,12 @@
 \alias{initializeVertices}
 \title{Initialize the vertex attributes and values}
 \usage{
-initializeVertices(g, data)
+initializeVertices(g, data, fixed)
 }
 \arguments{
 \item{g}{an igraph object}
+
+\item{fixed}{character array, vertex names of fixed variables}
 }
 \description{
 Initializes the boolean attributes of the vectors,

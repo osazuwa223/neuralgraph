@@ -1,7 +1,7 @@
 library(dplyr)
 devtools::load_all("../../R/optimization.R")
 devtools::load_all("../../R/tools.R")
-option <- TRUE
+option <- FALSE
 #devtools::load_all("R/optimization.R")
 #devtools::load_all("R/templates.R")
 context("Signal graph data structure")
@@ -24,7 +24,7 @@ test_that("initializeGraph generates a signalgraph with all the desirable attrib
 
 none <- function(x) !all(x)
 test_that("observed nodes have correct attributes", {
-  g <- random_unfit_sg(8, 3)
+  g <- random_unfit_sg(8, 10, no_fixed = FALSE)
   observed <- V(g)[is.observed]
   observed$input.signal %>% lapply(is.na) %>% unlist %>% any %>% expect_true # assuming there should be at least one non-root
   observed$is.observed %>% all %>% expect_true # by definition
@@ -34,6 +34,26 @@ test_that("observed nodes have correct attributes", {
   observed$is.leaf %>% any %>% expect_true # there must be at least one observed node that is a leaf
   observed$updated %>% all %>% expect_true # intialize graph should have made 
 })
+
+
+test_that("fixed variables become roots, all other variables become not-roots, and get biases ", {
+  expect_equal(names(formals(initializeGraph)), c("g", "data", "fixed", "graph_attr"))
+  expect_equal(names(formals(fitNetwork)), c("g", "data", "fixed", "graph_attr", "epsilon", "max.iter"))
+  data(mtcars)
+  my_data <- mtcars %>% 
+    rescale_df %>%
+    .[[1]]
+  fixed <- c("vs", "am", "gear")
+  g <- lucy::generateMultiConnectedDAG(8)
+  random <- setdiff(names(my_data), fixed)
+  V(g)$name <- random
+  g <- g + igraph::vertices(fixed)
+  g <- g + igraph::edges(c("vs", "mpg", "vs", "hp", "am", "carb", "gear", "drat", "gear", "qsec"))
+  g <- initializeGraph(g, my_data, fixed = fixed)
+  expect_true(all(!V(g)[random]$is.root))
+  expect_true(all(V(g)[fixed]$is.root))
+})
+
 test_that("hidden nodes have correct attributes", {
   g <- random_unfit_sg(8, 3)
   hidden <- V(g)[is.hidden]
@@ -103,7 +123,7 @@ test_that("for initializeGraph an error is thrown if the input graph does not ha
   g <- case$g
   test_data <- case$data  
   remove.vertex.attribute(g, "name") %>% 
-    {expect_error(initializeGraph(., test_data), "Vertices must be named.")}
+    {expect_error(initializeGraph(., test_data, fixed = NULL), "Vertices must be named.")}
 })
 test_that("an error is thrown if the data contains variables not in the graph", {
   case <- rand_case(8, 3)
@@ -145,7 +165,7 @@ test_that("resetUpdateAttributes changes updated structure of all nodes EXCEPT r
   g <- case$g
   test_data <- case$data
   g %>%
-    initializeGraph(test_data) %>%
+    initializeGraph(test_data, fixed = NULL) %>%
     resetUpdateAttributes %T>%
     {V(.)[is.root]$updated %>%
       all %>%
