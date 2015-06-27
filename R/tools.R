@@ -80,7 +80,7 @@ long_test <- function(option){
 #' Visualize a signal graph object
 #' 
 #' @export
-sg_viz <- function(g, main = NULL, show_biases = TRUE){
+sg_viz <- function(g, main = NULL, show_biases = FALSE){
   if(!show_biases)  g <- igraph::induced.subgraph(g, V(g)[!is.bias])
   col <- structure(rep("white", vcount(g)), names = V(g)$name)
   col[V(g)$is.observed] <- "light green"
@@ -115,4 +115,24 @@ logistic_to_positive <- function(g, v){
     structure(names = V(g)[parents]$name) %>%
     ensure_that(. > 0)
   new_weights
+}
+
+#' Pull igraph structure from a signal graph
+#' @param g a signalgraph object
+#' @export
+get_structure <- function(g){
+  g %>%
+    {induced.subgraph(., V(g)[!is.bias])} %>%
+    get.edgelist %>% # Pull out the edges
+    graph.edgelist # Add them back in
+}
+
+#' Get the mean squared error for a given vertex
+#' @param g a signalgraph object
+#' @param v a vertex id in the signal graph
+#' @return means squared error calculation
+#' @export
+get_vertex_mse <- function(g, v){
+  if(!V(g)[v]is.random) stop("vertex is not a random variable.")
+  (sum(unlist(V(g)[v]$observed) - unlist(V(g)[v]$output.signal))^2) / g$n
 }

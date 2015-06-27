@@ -37,16 +37,49 @@ validated_net <- initializeGraph(tcell_input_net, data = tcells_obs, graph_attr 
 #fitted_net <- fitInitializedNetwork(validated_net, max.iter = 3)
 fitted_net <- NULL
 
-########################################################################################
-## Create the network with Erk, Mek, PIP3, and Raf hidden
-########################################################################################
-partial_data <- tcells_obs[, setdiff(names(tcells_obs), c("Erk", "Mek", "PIP3","Raf"))] 
-subset_example <- initializeGraph(tcell_input_net, 
-                                  data = partial_data,
-                                  graph_attr = graph_attributes)
+#####################################################################################################
+tcells$processed$.data %>%
+  mutate(interventions = factor(tcells$processed$interventions)) %>%
+
+int_levels <- c("observational", "PKC", "PKA", "PIP2", "Mek", "Akt")
+tcells_int <- tcells$processed$interventions %>%
+  factor(levels = int_levels) %>%
+  {data.frame(int_ = .)} %>%
+  model.matrix( ~ int_, .) %>%
+  .[, - 1] %>%
+  {cbind(tcells$processed$.data, .)} %>%
+  apply(2, function(col) { # Standardize to between 0 and 1
+    col <- as.numeric(col)
+    if(min(col) != 0) col <- (col - min(col))/(max(col) - min(col))
+    col
+  }) %>%
+  data.frame 
+data(tcell_examples, package = "bninfo")
+interventions <- c("int_PKC", "int_PKA", "int_PIP2", "int_Mek", "int_Akt")
+tcell_input_net <- tcell_examples$net %>%
+  {bnlearn::as.graphNEL(.)} %>% 
+  igraph.from.graphNEL %>%
+  {. + igraph::vertices(interventions)} %>%
+  {. + igraph::edges("int_PKC", "PKC", 
+                     "int_PKA", "PKA",
+                     "int_PIP2", "PIP2",
+                     "int_Mek", "Mek",
+                     "int_Akt", "Akt")}  
+validated_net <- initializeGraph(tcell_input_net, data = tcells_int, fixed = interventions)
+
+  
+  
+
 
 ########################################################################################
-## 
+## Create the network with upstream nodes hidden
+########################################################################################
+partial_data <- tcells_int[, setdiff(names(tcells_int), c("PKA", "PKC", "Raf", "Mek", "Plcg", "PIP3", "Erk"))] 
+subset_example <- initializeGraph(tcell_input_net, 
+                                  data = partial_data,
+                                  fixed = interventions,
+                                  graph_attr = graph_attributes) 
+sg_viz(subset_example, show_biases = FALSE)
 ########################################################################################
 net_list <- NULL
 for(m in 1:5){
@@ -169,7 +202,7 @@ for(i in 1:100){
     naive_scores <- c(naive_scores, naive_score)  
 }
 
-for(i in 1:100){
+for(i in 1:1000){
   naive_scores <- c(naive_scores, sample(c(0, rbeta(1, 2, 5)), 1, prob = c(.3, .7)))
   proposed_scores <- c(proposed_scores, sample(c(0, rbeta(1, 2, 2)), 1, prob = c(.2, .8)))
 }

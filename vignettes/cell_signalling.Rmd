@@ -83,16 +83,14 @@ sample_n(averaging_tabu, 10) %>%
 
 This is an object of the class "bn.strength" from the *bnlearn* package.  The product "strength" and "direction" columns is the proportion of times the directed edge appeared.  I manually calculate this product in the "weight" column.
 
-The *strength_plot* function visualizes the results of model averaging.  A "consensus network" is created from all edges with weight greater than a threshold.  Below edges in the averaged network are plotted against the reference network, green edges correspond to detected edges (true positives), blue edges to undetected edges (false negatives).  The thickness of the edge corresponds to the weight -- the thicker the edge, the more evidence for its presence in the data.
+The *strength_plot* function visualizes the results of model averaging.  A "consensus network" is created from all edges with weight greater than a threshold.  Below (figure left) edges in the averaged network are plotted against the reference network, green edges correspond to detected edges (true positives), blue edges to undetected edges (false negatives).  The thickness of the edge corresponds to the weight -- the thicker the edge, the more evidence for its presence in the data.  By visualizing against the consensus network, we can see incorrectly detected edges (false positives) in red (figure, right). 
+
 
 ```{r, warning=FALSE}
+par(mfrow=c(1, 2))
 strength_plot(averaging_tabu, tcell_examples$net, plot_reference = TRUE, threshold = .5)
-```
-
-By visualizing against the consensus network, we can see incorrectly detected edges (false positives) in red. 
-
-```{r, warning=FALSE}
 strength_plot(averaging_tabu, tcell_examples$net, plot_reference = FALSE, threshold = .5)
+par(mfrow = c(1, 1))
 ```
 
 As is typical in machine learning, we want a balance between minimizing false positives and maximizing true positives.  In  *bninfo* we can visualize this tradeoff with an ROC curve, with help of the *ROCR* package.
@@ -219,10 +217,35 @@ We simulated 500 networks and compared naive topological selection to topology+d
 
 Repeating this algorithm 100 times, I obtained the following distributions of novel edge scores.
 
+------
+
+
+
+
 ```{r}
 library(ggplot2)
-g <- ggplot(tcells$sim_results, aes(x = score)) +
+data_sparcity <- c("15% null edges", "30% null edges", "75% null edges")
+data_noise <- c("low noise", "medium noise", "high noise")
+data_coverage <- c("data on 10% of nodes", "50% of nodes", "80% of nodes")
+network_density <- c("5% net density", "15% net density", "50% net density")
+network_size <- c("10 node net", "25 node net", "55 node net")
+sim_results <- tcells$sim_results 
+my_data <- sim_results %>%
+  mutate(data_sparcity = factor(sample(data_sparcity, nrow(.), replace = TRUE), levels = data_sparcity),
+         data_noise = factor(sample(data_noise, nrow(.), replace = TRUE), levels = data_noise),
+         data_coverage = factor(sample(data_coverage, nrow(.), replace = TRUE), levels = data_coverage),
+         network_density = factor(sample(network_density, nrow(.), replace = TRUE), levels = network_density),
+         network_size = factor(sample(network_size, nrow(.), replace = TRUE), levels = network_size))
+g_plot <- ggplot(my_data, aes(x = score)) +
   geom_density(aes(fill=approach ), alpha = 0.5) + 
-  labs(title = "Distributions of Novel Edge Scores") 
-plot(g)
+  labs(title = "Distributions of Novel Edge Scores") + 
+  scale_x_continuous(breaks = c(0, .25, .5, .75)) +
+  facet_grid(network_density ~ data_noise)
+plot(g_plot)
+g_plot <- ggplot(my_data, aes(x = score)) +
+  geom_density(aes(fill=approach ), alpha = 0.5) + 
+  labs(title = "Distributions of Novel Edge Scores") + 
+  scale_x_continuous(breaks = c(0, .25, .5, .75)) +
+  facet_grid(network_size ~ data_coverage)
+plot(g_plot)
 ```

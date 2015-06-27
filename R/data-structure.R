@@ -151,12 +151,16 @@ initializeVectorAttributesForVertex <- function(g, v.index){
 #' @param g igraph object. The vertices must be named. 
 #' @param data a data frame. All of the names in the data from must match a vertex name.
 #' @return an igraph object where the 
-addDataToVertices <- function(g, data){
+addDataToVertices <- function(g, data, fixed){
   for(item in names(data)){
     data_list <- list(data[, item])
     V(g)[item]$observed <- data_list
     V(g)[item]$is.observed <- TRUE 
     if(V(g)[item]$is.root) V(g)[item]$output.signal <- data_list
+  }
+  for(item in fixed){
+    V(g)[fixed]$is.fixed <- TRUE
+    V(g)[!is.fixed && !is.bias]$is.random <- TRUE # Every thing that is not fixed and is not random is biased.
   }
   # Label the hidden nodes
   hidden_from_data <- V(g)[!is.bias] %>% # pull the non-bias nodes
@@ -174,7 +178,7 @@ addDataToVertices <- function(g, data){
 #' explicitly with igraph::`+.igraph` for safety reasons. 
 #' 
 #' @param g igraph object
-#' @param names of fixed variables in the vertices
+#' @param fixed names of fixed variables in the vertices
 #' @return an igraph object
 addBiases <- function(g, fixed){
   # If biases already exist, do nothing
@@ -210,6 +214,8 @@ initializeVertexBooleans <- function(g){
   V(g)$is.bias <- FALSE
   V(g)[grepl('bias', V(g)$name)]$is.bias <- TRUE # grep the biases by name and label them.
   V(g)$is.observed <- FALSE
+  V(g)$is.random <- FALSE
+  V(g)$is.fixed <- FALSE
   V(g)$is.hidden <- FALSE
   V(g)$is.root <- FALSE
   V(g)[get_roots(g)]$is.root <- TRUE
@@ -283,6 +289,7 @@ initializeEdges <- function(g){
 #'  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
 #'  }
 #' @return A graph with all the attributes needed to fit the neural network model.
+#' @export
 initializeGraph <- function(g, data, fixed = NULL, graph_attr = NULL){
   g %>%
     checkArgs(data) %>% # Check the arguments

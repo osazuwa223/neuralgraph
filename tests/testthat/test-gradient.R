@@ -139,7 +139,7 @@ test_that("gradient should be giving expected values as numeric derivative",{
 
 g1 <- get_gate(outputs = "AND", layers = c(3, 2))
 g2 <- mlp_graph(c("age", "fare"), "survived", c(5, 5)) %>%
-  initializeGraph(select(titan, age, fare, survived), fixed = NULL)
+  initializeGraph(select(titan, age, fare, survived), fixed = c("age", "fare"))
 
 test_that("doChainRule errors in the case when the vertex value does not depend on the weight", {
   skip("a bug here but ignoring gradient descent for now")

@@ -91,10 +91,17 @@ getPrediction <- function(g, v, new_weights){
   prediction_graph
 }
 
+#' MSE calculation over random variables in the graph
+#' 
+#' Calculates the mean squared error for all the random variables in a signalgraph 
+#' object, then reports the mean of means.
+#' 
+#' @param g a signal graph object
+#' @export 
 getMSE <- function(g){
-  k <- sum(V(g)[is.observed])
-  observed <- unlist(V(g)[is.observed]$observed)
-  prediction <- unlist(V(g)[is.observed]$output.signal)
+  k <- length(V(g)[is.random])
+  observed <- unlist(V(g)[is.random]$observed)
+  prediction <- unlist(V(g)[is.random]$output.signal)
   sum((observed - prediction) ^ 2) / g$n / k
 }
 

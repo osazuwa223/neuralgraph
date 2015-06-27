@@ -1,7 +1,7 @@
 library(dplyr)
 devtools::load_all("../../R/optimization.R")
 devtools::load_all("../../R/tools.R")
-option <- FALSE
+option <- TRUE
 #devtools::load_all("R/optimization.R")
 #devtools::load_all("R/templates.R")
 context("Signal graph data structure")
@@ -12,7 +12,8 @@ test_that("initializeGraph generates a signalgraph with all the desirable attrib
   test_data <- case$data
   g <- initializeGraph(g, test_data)
   expect_true("igraph" %in% class(g))
-  c("name", "input.signal", "f.prime.input", "output.signal", "observed", "is.bias", "is.observed", "is.hidden", "is.root", "is.leaf", "updated") %in% 
+  c("name", "input.signal", "f.prime.input", "output.signal", "observed", "is.bias", "is.observed", 
+    "is.random", "is.hidden", "is.root", "is.leaf", "updated") %in% 
     list.vertex.attributes(g) %>% 
     all %>%
     expect_true 
@@ -74,13 +75,35 @@ test_that("biases have correct attributes", {
   biases$is.bias %>% all %>% expect_true # obviously
   biases$is.root %>% all %>% expect_true # is a root
   biases$is.leaf %>% none %>% expect_true # is not a leaf
-  biases$updated %>% all %>% expect_true # always have updated set to TRUE
+  biases$updated %>% all %>% expect_true 
 })
+test_that("fixed nodes have correct attributes", {
+  g <- random_unfit_sg(8, 3)
+  fixed <- V(g)[is.fixed]
+  fixed$input.signal %>% lapply(is.na) %>% unlist %>% all %>% expect_true # fixed nodes have no input
+  fixed$is.bias %>% none %>% expect_true # distinguishing fixed variables from bias constant but technically
+  # a bias can be considered a fixed variable
+  fixed$is.hidden %>% none %>% expect_true # fixed variable nodes cannot be hidden
+  fixed$is.root %>% all %>% expect_true # fixed variable nodes must be roots
+  fixed$is.leaf %>% none %>% expect_true # fixed variable nodes cannot be leaves
+  fixed$updated %>% all %>% expect_true
+})
+
+test_that("random nodes have correct attributes", {
+  g <- random_unfit_sg(8, 3)
+  randoms <- V(g)[is.random]
+  randoms$input.signal %>% lapply(is.na) %>% unlist %>% none %>% expect_true # random values must have input.signal 
+  #hidden check omitted, some, or all can be hidden
+  randoms$is.bias %>% none %>% expect_true # random nodes can't be biases
+  randoms$is.root %>% none %>% expect_true # random nodes can't be roots
+  randoms$is.leaf %>% all %>% expect_true # random nodes must be leaves
+  randoms$updated %>% all %>% expect_true
+})
+
 test_that("root nodes have correct attributes", {
   g <- random_unfit_sg(8, 3)
   roots <- V(g)[is.root]
   roots$input.signal %>% lapply(is.na) %>% unlist %>% all %>% expect_true # roots can't have input.signal 
-  roots$is.observed %>% any %>% expect_true # Roots must have at least on non-bias, which must be observed
   roots$is.hidden %>% none %>% expect_true # Roots cannot be hidden
   roots$is.bias %>% any %>% expect_true # There must at least be one root that is a bias
   roots$is.root %>% all %>% expect_true # obviously
@@ -144,13 +167,15 @@ test_that("if a vertex is not in a variable in the data, it becomes a hidden var
     all %>% 
     expect_true
 })
-test_that("if a root or a leaf is not observed in the data, an error is thrown", {
+
+test_that("if a leaf is not observed in the data, an error is thrown", {
   case <- rand_case(8, 3)
   g <- case$g
   test_data <- case$data %>%
-    {`[`(.,setdiff(names(.), V(g)[get_roots(g)[1]]))}
-  expect_error(initializeGraph(g, test_data), "Graph roots and leaves must be observed in the data.")
+    {`[`(.,setdiff(names(.), V(g)[get_leaves(g)[1]]))}
+  expect_error(initializeGraph(g, test_data), "Graph leaves must be observed in the data.")
 })
+
 test_that("initializeEdges provides a graph with 'weight' edge attribute and if the attribute
           already exists, they should have been changed.", {
             case <- rand_case(8, 3)
@@ -218,10 +243,11 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
 
 test_that("fitNetwork returns a graph structure", {
   long_test(option)
-  g <- random_fit_sg(3, 2, 10, max.iter = 1)
+  g <- random_unfit_sg(3, 2, 10)
   observed <- recover_design(g)
-  g <- fitNetwork(g, observed, max.iter = 1)
-  expect_true(class(g) == "igraph")
+  g_structure <- get_structure(g)
+  g_fit <- fitNetwork(g_structure, observed, max.iter = 1)
+  expect_true(class(g_fit) == "igraph")
 })
 
 test_that("after the weights of a given vertex has changed, the prediction should change",{
@@ -251,7 +277,7 @@ test_that("test that if the updated status of biases/roots and input nodes ever 
     rescale_df %$% #Note, everything is rescaled to between 0 and 1
     df
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
-    {initializeGraph(., data = dplyr::select(titan, age, fare, survived))}
+    {initializeGraph(., data = dplyr::select(titan, age, fare, survived), fixed = c("age", "fare"))}
   V(g)[is.root]$updated <- FALSE
-  expect_error(fitInitializedNetwork(g,  epsilon = .01, max.iter = 1), "Inputs or biases had FALSE for updated.")
+  expect_error(fitInitializedNetwork(g,  epsilon = .01, max.iter = 1), "Roots should not have FALSE value for updated attribute.")
 })

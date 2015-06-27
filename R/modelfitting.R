@@ -105,6 +105,7 @@ g
 #' 
 #' @param g igraph object. The vertices must be named. 
 #' @param data a data frame. All of the names in the data from must match a vertex name.
+#' @param fixed names of fixed variables in the vertices
 #' @param graph_attr list of graph attributes.  Graph attributes include:  
 #' \itemize{
 #'  \item{L1_pen}{penalized least squares error L1 penalty parameter value}

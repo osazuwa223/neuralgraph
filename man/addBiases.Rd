@@ -9,7 +9,7 @@ addBiases(g, fixed)
 \arguments{
 \item{g}{igraph object}
 
-\item{names}{of fixed variables in the vertices}
+\item{fixed}{names of fixed variables in the vertices}
 }
 \value{
 an igraph object

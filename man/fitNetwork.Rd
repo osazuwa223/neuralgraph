@@ -12,6 +12,8 @@ fitNetwork(g, data, fixed = NULL, graph_attr = NULL, epsilon = 0.001,
 
 \item{data}{a data frame. All of the names in the data from must match a vertex name.}
 
+\item{fixed}{names of fixed variables in the vertices}
+
 \item{graph_attr}{list of graph attributes.  Graph attributes include:
 \itemize{
  \item{L1_pen}{penalized least squares error L1 penalty parameter value}
