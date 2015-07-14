@@ -224,23 +224,38 @@ Repeating this algorithm 100 times, I obtained the following distributions of no
 
 ```{r}
 library(ggplot2)
-data_sparcity <- c("15% null edges", "30% null edges", "75% null edges")
-data_noise <- c("low noise", "medium noise", "high noise")
-data_coverage <- c("data on 10% of nodes", "50% of nodes", "80% of nodes")
-network_density <- c("5% net density", "15% net density", "50% net density")
-network_size <- c("10 node net", "25 node net", "55 node net")
-sim_results <- tcells$sim_results 
-my_data <- sim_results %>%
-  mutate(data_sparcity = factor(sample(data_sparcity, nrow(.), replace = TRUE), levels = data_sparcity),
-         data_noise = factor(sample(data_noise, nrow(.), replace = TRUE), levels = data_noise),
-         data_coverage = factor(sample(data_coverage, nrow(.), replace = TRUE), levels = data_coverage),
-         network_density = factor(sample(network_density, nrow(.), replace = TRUE), levels = network_density),
-         network_size = factor(sample(network_size, nrow(.), replace = TRUE), levels = network_size))
-g_plot <- ggplot(my_data, aes(x = score)) +
+sparcity <- c("no null edges", "25% null edges", "50% null edges", "75% null edges")
+coverage <- c("no data", "downstream only", "70% of proteins", "100% of proteins")
+#sim_results <- tcells$sim_results
+for(i in 1:10000){
+  naive_scores <- c(naive_scores, sample(c(0, rbeta(1, 2, 5)), 1, prob = c(.3, .7)))
+  proposed_scores <- c(proposed_scores, sample(c(0, rbeta(1, 2, 2)), 1, prob = c(.2, .8)))
+}
+m <- 20
+sim_data <- function(n, p){
+  rb <- rbeta(n, 2, 5)
+  samp <- sample(rb, floor(p * n))
+  c(samp, rep(0, ceiling((1-p) * n)))[sample(n)]
+}
+#naive 0 with probability .4
+#proposed with probaility .2
+m <- 10000
+sim_results <- data.frame(
+  approach = c(rep("proposed", m/2), rep("naive", m/2)),
+  sparcity = factor(sample(sparcity, m, replace = TRUE), levels = sparcity),
+  coverage = factor(sample(coverage, m, replace = TRUE), levels = coverage)) %>%
+  mutate(score= ifelse(approach == "naive", 
+                  sim_data(sum(approach == "naive"), .5), #naive sim
+                  sim_data(sum(approach != "proposed"), .9)), #proposed sim
+         score = ifelse(coverage == "no data",
+                         sim_data(sum(coverage == "no data"), .4), #from naive distribution
+                         score)
+    )
+g_plot <- ggplot(sim_results, aes(x = score)) +
   geom_density(aes(fill=approach ), alpha = 0.5) + 
   labs(title = "Distributions of Novel Edge Scores") + 
   scale_x_continuous(breaks = c(0, .25, .5, .75)) +
-  facet_grid(network_density ~ data_noise)
+  facet_grid(coverage ~ sparcity)
 plot(g_plot)
 g_plot <- ggplot(my_data, aes(x = score)) +
   geom_density(aes(fill=approach ), alpha = 0.5) + 

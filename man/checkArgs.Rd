@@ -4,7 +4,7 @@
 \alias{checkArgs}
 \title{Check validity of arguments}
 \usage{
-checkArgs(g, data)
+checkArgs(g, data, fixed)
 }
 \arguments{
 \item{g}{an igraph object, vertices should be named.}

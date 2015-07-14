@@ -133,6 +133,6 @@ get_structure <- function(g){
 #' @return means squared error calculation
 #' @export
 get_vertex_mse <- function(g, v){
-  if(!V(g)[v]is.random) stop("vertex is not a random variable.")
+  if(!V(g)[v]$is.random) stop("vertex is not a random variable.")
   (sum(unlist(V(g)[v]$observed) - unlist(V(g)[v]$output.signal))^2) / g$n
 }

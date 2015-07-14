@@ -5,9 +5,6 @@ devtools::load_all("../../R/templates.R")
 context("templates for commmonly used signal graph models")
 library(dplyr)
 
-
-
-
 test_that("get_gate with all outputs works as expected", {
   gates <- c("AND", "OR", "NAND", "NOR", "XOR", "XNOR") 
   g <- get_gate(layers = c(2, 3))

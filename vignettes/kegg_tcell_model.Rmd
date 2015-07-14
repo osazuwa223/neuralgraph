@@ -1,0 +1,193 @@
+---
+title: "Vignette Title"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r}
+library(signalgraph)
+```
+
+Load the processed T-cell data.
+
+```{r}
+data(tcells, package = "bninfo")
+.data <- tcells$raw_data[[1]]
+```
+
+The T-cell data uses protein names.  I need to map these to KEGG names
+
+```{r}
+protein_names <- names(.data)
+sachs_kegg_map <- data.frame(
+  label = c("Raf", "Mek", "Plcg", "Erk", "Akt", "PKC", "P38", "Jnk"),
+  kegg = c("hsa:5894", "hsa:5604", "hsa:5335", "hsa:5594", "hsa:10000", "hsa:5588", "hsa:1432", "hsa:5601"),
+  stringsAsFactors = F
+) %>%
+  `rownames<-`(.$kegg)
+sachs_kegg_map
+```
+
+I use KEGGgraph to grab the T cell receptor signaling pathway.  By default this stores nodes by KEGG IDs.  With some tweaking I can grab the gene names for a more convenient naming scheme.  The downloaded graph is a graphNEL, I make the conversion to igraph.
+
+
+```{r}
+library(KEGGgraph)
+library(dplyr)
+maps <- c(tcell = "04660", mapk = "04010", P13k = "04151", ras = "04014", rap1 = "04015")
+vertex_master <- NULL
+edge_master <- NULL
+for(map in maps){
+  g_nell <- tempfile() %T>%
+  {retrieveKGML(map, organism="hsa", destfile=., method="curl", quiet=TRUE)} %>%
+  parseKGML2Graph(expandGenes=FALSE) 
+  vertex_list <- getKEGGnodeData(g_nell) %>%
+    {data.frame(
+      kegg = unlist(lapply(., function(item) item@name[1])),
+      label = unlist(lapply(., function(item) strsplit(item@graphics@name, ",")[[1]][1])),
+      stringsAsFactors = F)}
+  g <- igraph.from.graphNEL(g_nell) 
+  V(g)$name <- vertex_list$kegg 
+  edge_list <- getKEGGedgeData(g_nell) %>%
+    lapply(function(item){
+      if(length(item@subtype) > 0) return(item@subtype$subtype@name)
+      NA
+    }) %>%
+    unlist %>%
+    {cbind(get.edgelist(g), type = .)} %>%
+    data.frame
+  edge_master <- rbind(edge_master, edge_list)
+  vertex_master <- rbind(vertex_master, vertex_list)
+}
+edge_master <- edge_master %>%
+  as.data.frame %>%
+  unique %>%
+  filter(!(type %in% c("indirect effect", "dissociation", "compound", "dephosphorylation", "binding/association")))  
+vertex_master <- unique(as.data.frame(vertex_master))
+g_igraph <- graph.data.frame(edge_master, directed = TRUE, vertices = vertex_master) %>%
+  simplify(edge.attr.comb = "concat")
+```
+
+```{r}
+v_proteins <- V(g_igraph)[name %in% sachs_kegg_map$kegg] 
+V(g_igraph)[v_proteins]$name <- sachs_kegg_map[v_proteins$name, "label"]
+```
+The gene names are informative but not unique, the KEGG id's vice versa, so I combine the two.  The proteins in the data keep their original names.
+
+The trisphosphate compounds PIP2 and PIP3 are in the data, but in KEGG they are a [compound](http://www.kegg.jp/dbget-bin/www_bget?C01245).  I add these back in, as well as protein kinase A (PKA) and some other interactions from other pathways (see references below).  I also remove the unlinked vertices.
+
+```{r}
+# Add in the missing vertices and edges
+g_igraph <- g_igraph - V(g_igraph)[duplicated(V(g_igraph)$name)]
+g_igraph <- g_igraph + vertices(c("PIP2", "PIP3", "PKA")) 
+g_igraph <- g_igraph + igraph::edges(c("Plcg", "PIP3", 
+                                       "PIP3", "PIP2", 
+                                       "Plcg", "PIP2")) 
+#Make sure to add things form the IP compound node downstream
+#"Raf.497/499", "cAMP", 
+
+V(g_igraph)["hsa:10125"]$name <- "RASGRP1"
+V(g_igraph)["hsa:3265"]$name <- "Ras"
+V(g_igraph)["hsa:5609"]$name <- "Mek7"
+V(g_igraph)["hsa:6885"]$name <- "Mekk7"
+# g_igraph <- g_igraph + igraph::edges(c("PKC", "Ras",
+#                                        "Ras", "Raf",
+#                                        "PKC", "Raf.497.499",
+#                                        "Raf.497.499", "Mek"))
+
+
+g_igraph <- g_igraph - V(g_igraph)[igraph::degree(g_igraph) == 0]
+```
+
+Plotting with RGraphviz.  The green nodes are are the proteins observed in the data.
+
+```{r}
+node_list <- rep("green", length(protein_names)) %>% 
+  structure(names = V(g_igraph)[protein_names]$name) %>%
+  {list(fill = ., fontsize=0.01)} 
+node_list <- list(fontsize = 80)
+g_igraph %>% # Give vertices names if they do not have nay 
+  igraph.to.graphNEL(.) %>% # convert to a graphNEL
+  {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
+  {graph::`nodeRenderInfo<-`(., node_list)} %>%
+  {Rgraphviz::renderGraph(.)} # Render the graph
+```
+
+Now I add in the interventions in the data to the graph.
+
+```{r}
+ints <- c("int_PKA", "int_PKC", "int_PIP2", "int_Mek", "int_Akt")
+g_igraph <- g_igraph + vertices(ints)
+g_igraph <- g_igraph + igraph::edges(c("int_PKA", "PKA",
+                                       "int_PKC", "PKC",
+                                       "int_Mek", "Mek",
+                                       "int_Akt", "Akt",
+                                       "int_PIP2", "PIP2"))
+node_list <- c(rep("green", length(protein_names)),
+               rep("orange", length(ints))) %>% 
+  structure(names = c(protein_names, ints)) %>%
+  {list(fill = ., fontsize = .01)} 
+g_igraph %>% # Give vertices names if they do not have nay 
+  igraph.to.graphNEL(.) %>% # convert to a graphNEL
+  {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
+  {graph::`nodeRenderInfo<-`(., node_list)} %>%
+  {Rgraphviz::renderGraph(.)} # Render the graph
+```
+
+To map how signal flows between these highlighted nodes, I zoom in on nodes that are both downstream and upstream of nodes that have data.
+
+```{r}
+observed <- V(g_igraph)[c(ints, protein_names)]
+unobserved <- V(g_igraph)[setdiff(V(g_igraph)$name, observed$name)]
+keepers <- unobserved[sapply(unobserved, function(B){
+  is_downstream <- any(sapply(observed, function(A) isBDownstreamOfA(g_igraph, A, B)))
+  is_upstream <- any(sapply(observed, function(A) isBUpstreamOfA(g_igraph, A, B)))
+  is_downstream && is_upstream
+})]
+tossers <- V(g_igraph)[setdiff(V(g_igraph), c(observed, keepers))]
+sub_net <- g_igraph - tossers
+sub_net <- sub_net - E(sub_net)[from("Plcg")][to("PKC")]
+node_list <- c(rep("green", length(protein_names)),
+               rep("orange", length(ints))) %>% 
+  structure(names = c(protein_names, ints)) %>%
+  {list(fill = ., fontsize = 30)} 
+sub_net %>%
+  igraph.to.graphNEL(.) %>%
+  layoutGraph(.) %>%
+  {graph::`nodeRenderInfo<-`(., node_list)} %>%
+  renderGraph(g_out)
+```
+
+
+
+### References
+Sachs, Karen, et al. "Causal protein-signaling networks derived from multiparameter single-cell data." Science 308.5721 (2005): 523-529. [dataset download](http://www.sciencemag.org/content/suppl/2005/04/21/308.5721.523.DC1/Sachs.SOM.Datasets.zip)
+
+Marsland, B. J. & Kopf, M. T-cell fate and function: PKC-theta and beyond. Trends Immunol. 29, 179-185 (2008)
+
+Sakaguchi, Shimon. "Naturally arising CD4+ regulatory T cells for immunologic self-tolerance and negative control of immune responses." Annu. Rev. Immunol. 22 (2004): 531-562.
+
+Perez, Omar D., et al. "Leukocyte functional antigen 1 lowers T cell activation thresholds and signaling through cytohesin-1 and Jun-activating binding protein 1." Nature immunology 4.11 (2003): 1083-1092.
+
+Altan-Bonnet, Grégoire, and Ronald N. Germain. "Modeling T cell antigen discrimination based on feedback control of digital ERK responses." PLoS biology 3.11 (2005): e356.
+
+Das, Jayajit, et al. "Digital signaling and hysteresis characterize ras activation in lymphoid cells." Cell 136.2 (2009): 337-351.
+
+Lipniacki, Tomasz, et al. "Stochastic effects and bistability in T cell receptor signaling." Journal of theoretical Biology 254.1 (2008): 110-122.
+
+Nika, Konstantina, et al. "Haematopoietic protein tyrosine phosphatase (HePTP) phosphorylation by cAMP-dependent protein kinase in T-cells: dynamics and subcellular location." Biochem. J 378 (2004): 335-342.
+
+Kolch, Walter, Muffy Calder, and David Gilbert. "When kinases meet mathematics: the systems biology of MAPK signalling." FEBS letters 579.8 (2005): 1891-1895.
+
+Whitehurst, Angelique, Melanie H. Cobb, and Michael A. White. "Stimulus-coupled spatial restriction of extracellular signal-regulated kinase 1/2 activity contributes to the specificity of signal-response pathways." Molecular and cellular biology 24.23 (2004): 10145-10150.
+
+Ferrell Jr, James E. "Self-perpetuating states in signal transduction: positive feedback, double-negative feedback and bistability." Current opinion in cell biology 14.2 (2002): 140-148.
+
+Li, Wei, et al. "Blocked signal transduction to the ERK and JNK protein kinases in anergic CD4+ T cells." Science 271.5253 (1996): 1272-1276.
+
+Fields, Patrick E., Thomas F. Gajewski, and Frank W. Fitch. "Blocked Ras activation in anergic CD4+ T cells." Science 271.5253 (1996): 1276-1278.

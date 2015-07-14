@@ -4,8 +4,8 @@
 \alias{fitNetwork}
 \title{Fit a Signalgraph model}
 \usage{
-fitNetwork(g, data, fixed = NULL, graph_attr = NULL, epsilon = 0.001,
-  max.iter = 3)
+fitNetwork(g, data, fixed = NULL, graph_attr = list(L2_pen = 0.01),
+  epsilon = 0.001, max.iter = 3)
 }
 \arguments{
 \item{g}{igraph object. The vertices must be named.}
@@ -16,11 +16,11 @@ fitNetwork(g, data, fixed = NULL, graph_attr = NULL, epsilon = 0.001,
 
 \item{graph_attr}{list of graph attributes.  Graph attributes include:
 \itemize{
- \item{L1_pen}{penalized least squares error L1 penalty parameter value}
- \item{L2_pen}{penalized least squares error L2 penalty parameter value}
- \item{activation}{the activation function (this actually is an R function), defaults to logistic.}
- \item{activation.prime}{The derivative fo the activation function, used in gradient calculation. Defaults to NULL}
- \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
+ \item{L1_pen:}{ penalized least squares error L1 penalty parameter value}
+ \item{L2_pen:}{ penalized least squares error L2 penalty parameter value}
+ \item{activation:}{ the activation function (this actually is an R function), defaults to logistic.}
+ \item{activation.prime:}{ The derivative fo the activation function, used in gradient calculation. Defaults to NULL}
+ \item{min.max.constraints:}{ 2 element numeric containing the acceptable range for each rate.}
  }}
 
 \item{epsilon}{when means square area falls below epsilon, stop}
@@ -31,6 +31,7 @@ fitNetwork(g, data, fixed = NULL, graph_attr = NULL, epsilon = 0.001,
 A fitted signalgraph object.
 }
 \description{
-Initializes a graph into a signalgraph then fits the model.
+Initializes a graph into a signalgraph then fits the model with penalized least squares.
+The default L2 penalty parameter is .01
 }
 

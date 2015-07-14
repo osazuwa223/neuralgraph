@@ -88,7 +88,7 @@ fitInitializedNetwork <- function(g, epsilon = 1e-4, max.iter = 3){
     `if`(ecount(g) > 3,
          message("First 3 Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n"),
          message("Weights: ", paste(round(E(g)$weight, 3), collapse =", "), "\n")
-    )
+         )
     mse <- getMSE(g) %T>% # Get the new MSE
       {message("Mean Squared Error: ", round(., 6), "\n")} 
     if(abs(mse - mse_last) < epsilon){
@@ -101,24 +101,25 @@ g
 
 #' Fit a Signalgraph model
 #' 
-#' Initializes a graph into a signalgraph then fits the model.
+#' Initializes a graph into a signalgraph then fits the model with penalized least squares.
+#' The default L2 penalty parameter is .01  
 #' 
 #' @param g igraph object. The vertices must be named. 
 #' @param data a data frame. All of the names in the data from must match a vertex name.
 #' @param fixed names of fixed variables in the vertices
 #' @param graph_attr list of graph attributes.  Graph attributes include:  
 #' \itemize{
-#'  \item{L1_pen}{penalized least squares error L1 penalty parameter value}
-#'  \item{L2_pen}{penalized least squares error L2 penalty parameter value}
-#'  \item{activation}{the activation function (this actually is an R function), defaults to logistic.}
-#'  \item{activation.prime}{The derivative fo the activation function, used in gradient calculation. Defaults to NULL}
-#'  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
+#'  \item{L1_pen:}{ penalized least squares error L1 penalty parameter value}
+#'  \item{L2_pen:}{ penalized least squares error L2 penalty parameter value}
+#'  \item{activation:}{ the activation function (this actually is an R function), defaults to logistic.}
+#'  \item{activation.prime:}{ The derivative fo the activation function, used in gradient calculation. Defaults to NULL}
+#'  \item{min.max.constraints:}{ 2 element numeric containing the acceptable range for each rate.}
 #'  }
 #' @param epsilon when means square area falls below epsilon, stop
 #' @param max.iter maximum number of iterations
 #' @return A fitted signalgraph object.
 #' @export
-fitNetwork <- function(g, data, fixed = NULL, graph_attr = NULL, epsilon = 1e-3, max.iter = 3){
+fitNetwork <- function(g, data, fixed = NULL, graph_attr = list(L2_pen = .01), epsilon = 1e-3, max.iter = 3){
   g %>% 
     initializeGraph(data, fixed, graph_attr) %>%
     fitInitializedNetwork(epsilon, max.iter)

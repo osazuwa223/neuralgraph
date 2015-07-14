@@ -4,7 +4,7 @@
 \alias{addDataToVertices}
 \title{Add data to vertices}
 \usage{
-addDataToVertices(g, data)
+addDataToVertices(g, data, fixed)
 }
 \arguments{
 \item{g}{igraph object. The vertices must be named.}

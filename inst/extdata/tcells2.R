@@ -8,45 +8,12 @@ devtools::load_all("R/modelfitting.R")
 ## Load in the processed T cell data, and add signal nodes
 ########################################################################################
 data(tcells, package = "bninfo")
-tcells_obs <- tcells$processed$.data %>%
-  mutate(interventions = tcells$processed$interventions) %>% # Add interventions to the data frame environment
-  filter(interventions %in% c("observational", "PKA", "PKC")) %>% # Subset to observational, PKA ,and PKC
-  mutate(PKC_signal = ifelse(interventions == "PKC", 1, 0), # Add a PKC_signal node
-         PKA_signal = ifelse(interventions == "PKA", 1, 0), # Add a PKA_signal node
-         general_signal = 0,  #Add a dummy general_signal node
-         interventions = NULL)  %>% # Remove the interventions variable from the data frame
-  apply(2, function(col) { # Standardize to between 0 and 1
-    col <- as.numeric(col)
-    if(min(col) != 0) col <- (col - min(col))/(max(col) - min(col))
-    col
-  }) %>%
-  data.frame # Convert to data.frmae
-data(tcell_examples, package = "bninfo")
-tcell_input_net <- tcell_examples$net %>%
-  {bnlearn::as.graphNEL(.)} %>% 
-  igraph.from.graphNEL %>%
-  {. + igraph::vertices("PKC_signal", "PKA_signal", "general_signal")} %>%
-  {. + igraph::edges("PKC_signal", "PKC", 
-                     "PKA_signal", "PKA", 
-                     "general_signal", "PKC",
-                     "general_signal", "Plcg")}
-#graph_attributes <- list(L1_pen = 0, L2_pen = .2, activation = function(u) u / (1 + u), min.max.constraints = c(0, 6))
-graph_attributes <- list(L1_pen = 0, L2_pen = .1)
-
-validated_net <- initializeGraph(tcell_input_net, data = tcells_obs, graph_attr = graph_attributes)
-#fitted_net <- fitInitializedNetwork(validated_net, max.iter = 3)
-fitted_net <- NULL
-
-#####################################################################################################
-tcells$processed$.data %>%
-  mutate(interventions = factor(tcells$processed$interventions)) %>%
-
-int_levels <- c("observational", "PKC", "PKA", "PIP2", "Mek", "Akt")
-tcells_int <- tcells$processed$interventions %>%
-  factor(levels = int_levels) %>%
-  {data.frame(int_ = .)} %>%
+int_levels <- c("observational", "PKC", "PKA", "PIP2", "Mek", "Akt") 
+tcells_int <- tcells$processed$interventions %>% # read in intervention array
+  factor(levels = int_levels) %>% # make it a factor 
+  {data.frame(int_ = .)} %>% # covert to design matrix and add to other variables
   model.matrix( ~ int_, .) %>%
-  .[, - 1] %>%
+  .[, - 1] %>% # (removes intercept)
   {cbind(tcells$processed$.data, .)} %>%
   apply(2, function(col) { # Standardize to between 0 and 1
     col <- as.numeric(col)
@@ -54,7 +21,7 @@ tcells_int <- tcells$processed$interventions %>%
     col
   }) %>%
   data.frame 
-data(tcell_examples, package = "bninfo")
+data(tcell_examples, package = "bninfo") #prepare to make intervention nodes
 interventions <- c("int_PKC", "int_PKA", "int_PIP2", "int_Mek", "int_Akt")
 tcell_input_net <- tcell_examples$net %>%
   {bnlearn::as.graphNEL(.)} %>% 
@@ -68,33 +35,82 @@ tcell_input_net <- tcell_examples$net %>%
 validated_net <- initializeGraph(tcell_input_net, data = tcells_int, fixed = interventions)
 
   
-  
-
-
 ########################################################################################
 ## Create the network with upstream nodes hidden
 ########################################################################################
-partial_data <- tcells_int[, setdiff(names(tcells_int), c("PKA", "PKC", "Raf", "Mek", "Plcg", "PIP3", "Erk"))] 
-subset_example <- initializeGraph(tcell_input_net, 
+removable_proteins <- c("PKA", "PKC", "Raf", "Mek", "Plcg", "PIP3", "Erk")
+nonremovable_proteins <- setdiff(names(tcells_int), removable_proteins)
+partial_data <- tcells_int[, nonremovable_proteins] 
+graph_attributes <- list(L1_pen = 0, L2_pen = .01, min.max.constraints = c(10, 10))
+subset_example_net <- initializeGraph(tcell_input_net, 
                                   data = partial_data,
                                   fixed = interventions,
                                   graph_attr = graph_attributes) 
-sg_viz(subset_example, show_biases = FALSE)
 ########################################################################################
-net_list <- NULL
-for(m in 1:5){
-  net_list_item <- tcell_input_net %>%
-    fitNetwork(partial_data, graph_attributes, max.iter = 2) %>%
-    list  
-  net_list <- c(net_list, net_list_item)
+#Get an average of m networks, average the edge weights, 
+
+########################################################################################
+num_iterations <- 1
+interventions <- c("int_PKC", "int_PKA", "int_PIP2", "int_Mek", "int_Akt")
+########
+# Missing nodes: "PKA", "PKC", "Raf", "Mek", "Plcg", "PIP3", "Erk"
+#######
+removable_proteins <- c("PKA", "PKC", "Raf", "Mek", "Plcg", "PIP3", "Erk")
+nonremovable_proteins <- setdiff(names(tcells_int), removable_proteins)
+partial_data <- tcells_int[, nonremovable_proteins] 
+graph_attributes <- list(L1_pen = 0, L2_pen = .01, min.max.constraints = c(-10, 10))
+m <- 15
+#net_list <- NULL
+for(i in 1:m){
+  message("Working on #", i, " iteration.")
+  net_list_item <-  fitNetwork(tcell_input_net, 
+                               data = partial_data,
+                               fixed = interventions,
+                               graph_attr = graph_attributes,
+                               max.iter = num_iterations) 
+  net_list <- c(net_list, list(net_list_item))
 }
+
+do.call("rbind", lapply(net_list, function(g){
+  E(g)$weight
+})) %>%
+  as.data.frame %>%
+  `colnames<-`(E(net_list_item)$name) %>%
+  summary
 
 lapply(net_list, function(g){
   g %>%
     betweenness(V(.), weight = abs(E(g)$weight)) %>%
-    .[c("Erk", "Mek", "PIP3", "Raf")] %>%
+    .[removable_proteins] %>%
     sort(decreasing = TRUE)
 })
+
+lapply(net_list, function(g){
+  g %>%
+    evcent(V(.), directed = TRUE, weights = E(g)$weight) %>%
+    .[removable_proteins] %>%
+    sort(decreasing = TRUE)
+})
+########
+# Missing nodes: "Raf", "Mek", "Plcg", "PIP3", "Erk"; ("PKA" and "PKC" added back in)
+#######
+removable_proteins <- c("Raf", "Mek", "Plcg", "PIP3", "Erk")
+nonremovable_proteins <- setdiff(names(tcells_int), removable_proteins)
+partial_data <- tcells_int[, nonremovable_proteins] 
+graph_attributes <- list(L1_pen = 0, L2_pen = .01, min.max.constraints = c(-10, 10))
+m <- 15
+net_list2 <- NULL
+for(i in 1:m){
+  message("Working on #", i, " iteration.")
+  net_list_item <- finitialized_net <- fitNetwork(tcell_input_net, 
+                                                  data = partial_data,
+                                                  fixed = interventions,
+                                                  graph_attr = graph_attributes, 
+                                                  max.iter = num_iterations) 
+  net_list2 <- c(net_list2, list(net_list_item))
+}
+
+
 
 
 mek_averaging <- tcell_data[, c(base_proteins, "Mek")] %>%
@@ -202,7 +218,7 @@ for(i in 1:100){
     naive_scores <- c(naive_scores, naive_score)  
 }
 
-for(i in 1:1000){
+for(i in 1:10000){
   naive_scores <- c(naive_scores, sample(c(0, rbeta(1, 2, 5)), 1, prob = c(.3, .7)))
   proposed_scores <- c(proposed_scores, sample(c(0, rbeta(1, 2, 2)), 1, prob = c(.2, .8)))
 }

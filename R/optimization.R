@@ -99,9 +99,10 @@ getPrediction <- function(g, v, new_weights){
 #' @param g a signal graph object
 #' @export 
 getMSE <- function(g){
-  k <- length(V(g)[is.random])
-  observed <- unlist(V(g)[is.random]$observed)
-  prediction <- unlist(V(g)[is.random]$output.signal)
+  response_variables <- intersect(V(g)[is.random], V(g)[is.observed])
+  k <- length(V(g)[response_variables])
+  observed <- unlist(V(g)[response_variables]$observed)
+  prediction <- unlist(V(g)[response_variables]$output.signal)
   sum((observed - prediction) ^ 2) / g$n / k
 }
 

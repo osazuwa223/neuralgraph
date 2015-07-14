@@ -6,7 +6,8 @@
 #' @param g an igraph object, vertices should be named.
 #' @param data a dataframe, each variable name should match a vertex name in the graph
 #' @return the input graph, ready for passing to a subsequent function
-checkArgs <- function(g, data){
+checkArgs <- function(g, data, fixed){
+  if(length(setdiff(fixed, names(data)) > 0)) stop("Specified fixed variables not found in the data")
   if(!is.directed(g)) stop("Signal graph requires a directed graph")
   if(vcount(g) < 2 || ecount(g) == 0) stop("There has to be at least 2 vertices and 1 directed edge.")
   if(is.null(V(g)$name)) stop("Vertices must be named")
@@ -160,8 +161,10 @@ addDataToVertices <- function(g, data, fixed){
   }
   for(item in fixed){
     V(g)[fixed]$is.fixed <- TRUE
-    V(g)[!is.fixed && !is.bias]$is.random <- TRUE # Every thing that is not fixed and is not random is biased.
   }
+  nonrandom <- c(V(g)[is.bias], V(g)[is.fixed]) #b iases and fixed variables are non-random
+  random <- setdiff(V(g), nonrandom) # everything else is random
+  V(g)[random]$is.random <- TRUE # Every thing that is not fixed and is not random is biased.
   # Label the hidden nodes
   hidden_from_data <- V(g)[!is.bias] %>% # pull the non-bias nodes
     {setdiff(.$name, names(data))} # find those that are not in the data  
@@ -251,7 +254,7 @@ initializeVertices <- function(g, data, fixed){
     addBiases(fixed) %>%
     initializeVertexBooleans %>%
     initializeVertexVectors %>%
-    addDataToVertices(data) %>%
+    addDataToVertices(data, fixed) %>%
     resetUpdateAttributes
 }
 
@@ -292,7 +295,7 @@ initializeEdges <- function(g){
 #' @export
 initializeGraph <- function(g, data, fixed = NULL, graph_attr = NULL){
   g %>%
-    checkArgs(data) %>% # Check the arguments
+    checkArgs(data, fixed) %>% # Check the arguments
     initializeGraphAttributes(graph_attr, nrow(data)) %>% # Add the graph attributes
     initializeVertices(data, fixed) %>% # Add biases and vertex attributes
     initializeEdges %>% # Add edge weights

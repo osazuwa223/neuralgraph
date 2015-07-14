@@ -37,10 +37,12 @@ rand_case <- function(m, n = m * m + m){
 #' @param n the number of desired rows in the data
 #' @param num_fixed the number of vertices treated as fixed variables.
 #' @param no_fixed boolean if TRUE then all vertices are treated as random. Defaults to FALSE
+#' @param no_fixed_prob probability of generating a case with no fixed variable nodes
 #' @return an initialized, but unfit (unoptimized) signal graph model
 #' @export
-random_unfit_sg <- function(m, n = m * m + m, no_fixed = FALSE, ...){
+random_unfit_sg <- function(m, n = m * m + m, no_fixed_prob = .3, ...){
   g <- rand_case(m, n)
+  no_fixed <- sample(c(TRUE, FALSE), 1, prob = c(no_fixed_prob, 1 - no_fixed_prob))
   if(no_fixed){
     return(initializeGraph(g$g, g$data, ...))
   }

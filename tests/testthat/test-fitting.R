@@ -27,7 +27,16 @@ test_that("in an initialized neural net style model where the predicted and obse
   expect_equal(E(g2)$weight, E(g)$weight, tolerance= .01)
 })
 
-test_that("I can get descent results on a linear model with hidden nodes", {})
+test_that("I can get descent results on a linear model with hidden nodes", {
+  case <- rand_case(20)
+  .data <- case$data
+  case$g %>%
+    initializeGraph(.data, graph_attr = list(min.max.constraints = c(-100, 100))) %>%
+    {E(.)$weight} %>%
+    summary %T>%
+    {expect_less_than(.["Max."], 100)} %T>%
+    {expect_more_than(.["Min."], -100)}
+})
 
 ### On titanic
 data(titanic3)
@@ -57,19 +66,21 @@ test_that("model should perform a reasonable MLP prediction on a toy problem wit
   system <- list(I1 = c(1, 0), I2 = c(1, 0)) %>%
     expand.grid %>%
     `names<-`(c("I1", "I2")) %>%
-    mutate(AND = I1 * I2)
+    {dplyr::mutate(., AND = I1 * I2)}
     #mutate(AND = I1 * I2, OR = (I1 + I2 > 0) * 1, NOR = (I1 + I2 == 0) * 1)
-  fit <- fitNetwork(g, select(system, I1, I2, AND),fixed = c("I1, "I2""), max.iter = 1)
+  fit <- fitNetwork(g, system, fixed = c("I1", "I2"), max.iter = 2, 
+                    graph_attr = list(L2_pen = 0, min.max.constraints = c(-20,20)))
   expect_equal(unlist(V(fit)["AND"]$output.signal), unlist(V(fit)["AND"]$observed), tolerance = .1)
 })
 
 test_that("L1 norm with super high penalty should bring weights from non-bias terms to 0", {
   long_test(option)
   set.seed(30)
-  g_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived),
+  g_structure <- mlp_graph(c("age", "fare"), "survived", c(4, 3))
+  g_pen <- {fitNetwork(g_structure, dplyr::select(titan, age, fare, survived),
                        fixed = c("age", "fare"),
-                       graph_attr = list(L1_pen = 10), epsilon = .01, max.iter = 1)}
-  expect_equal(sum(round(E(g_pen)[from(V(g)[!is.bias])]$weight, 4)), 0)  
+                       graph_attr = list(L1_pen = 100), epsilon = .01, max.iter = 1)}
+  expect_equal(sum(round(E(g_pen)[from(V(g_pen)[!is.bias])]$weight, 4)), 0)  
 })
 
 
@@ -77,9 +88,9 @@ test_that("L2 norm has less sum squares of fitted weight than unpenalized.", {
   long_test(option)
   set.seed(30)
   g_structure <- mlp_graph(c("age", "fare"), "survived", c(4, 3))
-  g_no_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), 
+  g_no_pen <- {fitNetwork(g_structure, dplyr::select(titan, age, fare, survived), 
                           fixed = c("age", "fare"), epsilon = .01, max.iter = 1)}
-  g_pen <- {fitNetwork(g_structure, select(titan, age, fare, survived), 
+  g_pen <- {fitNetwork(g_structure, dplyr::select(titan, age, fare, survived), 
                        fixed = c("age", "fare"),
                        graph_attr = list(L2_pen = 3), 
                        epsilon = .01, max.iter = 1)}
