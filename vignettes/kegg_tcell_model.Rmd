@@ -1,7 +1,5 @@
 ---
-title: "Vignette Title"
-author: "Vignette Author"
-date: "`r Sys.Date()`"
+title: "Converting KEGG model to a Signal Graph Model"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
@@ -25,8 +23,8 @@ The T-cell data uses protein names.  I need to map these to KEGG names
 ```{r}
 protein_names <- names(.data)
 sachs_kegg_map <- data.frame(
-  label = c("Raf", "Mek", "Plcg", "Erk", "Akt", "PKC", "P38", "Jnk"),
-  kegg = c("hsa:5894", "hsa:5604", "hsa:5335", "hsa:5594", "hsa:10000", "hsa:5588", "hsa:1432", "hsa:5601"),
+  label = c("Raf", "Mek", "Plcg", "Erk", "Akt", "PKC", "P38", "Jnk", "PKA"),
+  kegg = c("hsa:5894", "hsa:5604", "hsa:5335", "hsa:5594", "hsa:10000", "hsa:5588", "hsa:1432", "hsa:5601", "hsa:5566"),
   stringsAsFactors = F
 ) %>%
   `rownames<-`(.$kegg)
@@ -84,22 +82,17 @@ The trisphosphate compounds PIP2 and PIP3 are in the data, but in KEGG they are 
 ```{r}
 # Add in the missing vertices and edges
 g_igraph <- g_igraph - V(g_igraph)[duplicated(V(g_igraph)$name)]
-g_igraph <- g_igraph + vertices(c("PIP2", "PIP3", "PKA")) 
+g_igraph <- g_igraph + vertices(c("PIP2", "PIP3")) 
 g_igraph <- g_igraph + igraph::edges(c("Plcg", "PIP3", 
                                        "PIP3", "PIP2", 
                                        "Plcg", "PIP2")) 
-#Make sure to add things form the IP compound node downstream
-#"Raf.497/499", "cAMP", 
 
 V(g_igraph)["hsa:10125"]$name <- "RASGRP1"
 V(g_igraph)["hsa:3265"]$name <- "Ras"
 V(g_igraph)["hsa:5609"]$name <- "Mek7"
 V(g_igraph)["hsa:6885"]$name <- "Mekk7"
-# g_igraph <- g_igraph + igraph::edges(c("PKC", "Ras",
-#                                        "Ras", "Raf",
-#                                        "PKC", "Raf.497.499",
-#                                        "Raf.497.499", "Mek"))
-
+V(g_igraph)["hsa:5578"]$name <- "PKCA"
+V(g_igraph)["hsa:5584"]$name <- "PKCI"
 
 g_igraph <- g_igraph - V(g_igraph)[igraph::degree(g_igraph) == 0]
 ```
@@ -110,7 +103,6 @@ Plotting with RGraphviz.  The green nodes are are the proteins observed in the d
 node_list <- rep("green", length(protein_names)) %>% 
   structure(names = V(g_igraph)[protein_names]$name) %>%
   {list(fill = ., fontsize=0.01)} 
-node_list <- list(fontsize = 80)
 g_igraph %>% # Give vertices names if they do not have nay 
   igraph.to.graphNEL(.) %>% # convert to a graphNEL
   {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
@@ -125,6 +117,8 @@ ints <- c("int_PKA", "int_PKC", "int_PIP2", "int_Mek", "int_Akt")
 g_igraph <- g_igraph + vertices(ints)
 g_igraph <- g_igraph + igraph::edges(c("int_PKA", "PKA",
                                        "int_PKC", "PKC",
+                                       "int_PKC", "PKCA",
+                                       "int_PKC", "PKCI",
                                        "int_Mek", "Mek",
                                        "int_Akt", "Akt",
                                        "int_PIP2", "PIP2"))
@@ -149,6 +143,7 @@ keepers <- unobserved[sapply(unobserved, function(B){
   is_upstream <- any(sapply(observed, function(A) isBUpstreamOfA(g_igraph, A, B)))
   is_downstream && is_upstream
 })]
+V(g_igraph)[keepers]$name <- V(g_igraph)[keepers]$label
 tossers <- V(g_igraph)[setdiff(V(g_igraph), c(observed, keepers))]
 sub_net <- g_igraph - tossers
 sub_net <- sub_net - E(sub_net)[from("Plcg")][to("PKC")]

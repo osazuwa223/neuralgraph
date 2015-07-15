@@ -46,9 +46,9 @@ subset_example_net <- initializeGraph(tcell_input_net,
                                   data = partial_data,
                                   fixed = interventions,
                                   graph_attr = graph_attributes) 
+
 ########################################################################################
 #Get an average of m networks, average the edge weights, 
-
 ########################################################################################
 num_iterations <- 1
 interventions <- c("int_PKC", "int_PKA", "int_PIP2", "int_Mek", "int_Akt")

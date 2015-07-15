@@ -4,6 +4,6 @@ Signalgraph fits graphical models for signal processing, using well-known graphi
 
 ```
 install.packages("devtools")
-devtools::install_github("osazuwa223/signalgraph")
+devtools::install_github("robertness/signalgraph")
 library(RNeo4j)
 ```
