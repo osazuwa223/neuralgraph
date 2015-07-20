@@ -4,12 +4,14 @@
 \alias{sim_system}
 \title{Generate a random signalgraph object for data simulation}
 \usage{
-sim_system(m, n, ...)
+sim_system(m, n, error_sd = 0.2, ...)
 }
 \arguments{
 \item{m}{the number of desired nodes}
 
 \item{n}{the number of desired rows in the data}
+
+\item{error_sd}{desired standard deviation for Gaussian error of logit(x)}
 
 \item{...}{arguments past to fitNetwork, including graph attributes}
 }

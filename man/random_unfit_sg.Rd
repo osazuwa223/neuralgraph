@@ -21,7 +21,7 @@ random_unfit_sg(m, n = m * m + m, no_fixed_prob = 0.3, ...)
 an initialized, but unfit (unoptimized) signal graph model
 }
 \description{
-Uses the generateMultiConnectedDAG in the lucy \url{https://github.com/osazuwa223/lucy} package.
+Uses the sim_DAG in the lucy \url{https://github.com/osazuwa223/lucy} package.
 Since the vertices that must have data are the roots and the leaves, (everything in between can be hidden),
 then a data frame is simulated for only those nodes.
 }

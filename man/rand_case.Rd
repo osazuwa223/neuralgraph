@@ -4,7 +4,7 @@
 \alias{rand_case}
 \title{Test Case: Random graph and matching data}
 \usage{
-rand_case(m, n = m * m + m)
+rand_case(m, n = m * m + m, method = "ordered")
 }
 \arguments{
 \item{m}{the number of desired nodes}

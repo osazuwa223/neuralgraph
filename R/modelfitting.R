@@ -32,8 +32,8 @@ calculateVals <- function(g, v){
 #' propagation function in the lucy package, using calculateVals as the callback.
 #' @param g a signalgraph object.
 #' @return a signal graph object with updated values for the signal attributes.
-updateSignals <- function(g){
-  updateVertices(g, getDeterminers = lucy::iparents, callback = calculateVals)
+update_signals <- function(g){
+  update_vertices(g, getDeterminers = lucy::iparents, callback = calculateVals)
 }
 
 #' Update the weight at each edge in a signalgraph object
@@ -42,8 +42,8 @@ updateSignals <- function(g){
 #' propagation function in the lucy package, using calculateVals as the callback.
 #' @param g a signalgraph object.
 #' @return a signalgraph object with updated weights.
-updateWeights <- function(g){
-  updateEdges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
+update_weights <- function(g){
+  update_edges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
 }
 
 #' Find edges that affect an edge's optimization
@@ -60,7 +60,7 @@ getDependentEdges <- function(g, e){
   # Find the target vertex of e
   trg_vertex <- V(g)[get.edgelist(g)[e, 2]]
   # Find observed nodes that are downstream of the target vertex 
-  downstream_observed <- intersect(V(g)[is.observed], getDownstreamNodes(g, trg_vertex)) 
+  downstream_observed <- intersect(V(g)[is.observed], get_downstream_nodes(g, trg_vertex)) 
   #Find edges on paths between the target vertex and the downstream observed nodes.
   dependent_edges <- NULL
   for(v in downstream_observed){
@@ -79,12 +79,13 @@ getDependentEdges <- function(g, e){
 #' @param g an igraph object initialized to an unfit signalgraph object
 #' @param epsilon when means square area falls below epsilon, stop
 #' @param max.iter maximum number of iterations
-fitInitializedNetwork <- function(g, epsilon = 1e-4, max.iter = 3){
+#' @export
+fit_initialized_sg <- function(g, epsilon = 1e-4, max.iter = 3){
   mse_last <-  getMSE(g)
   for(i in 1:max.iter){
     g <- resetUpdateAttributes(g) %>%
-      updateWeights %>% 
-      updateSignals
+      update_weights %>% 
+      update_signals
     `if`(ecount(g) > 3,
          message("First 3 Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n"),
          message("Weights: ", paste(round(E(g)$weight, 3), collapse =", "), "\n")
@@ -122,5 +123,6 @@ g
 fitNetwork <- function(g, data, fixed = NULL, graph_attr = list(L2_pen = .01), epsilon = 1e-3, max.iter = 3){
   g %>% 
     initializeGraph(data, fixed, graph_attr) %>%
-    fitInitializedNetwork(epsilon, max.iter)
+    fit_initialized_sg(epsilon, max.iter)
 }
+

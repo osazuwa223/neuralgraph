@@ -203,64 +203,9 @@ legend("bottomright", c("naive approach", "proposed approach"), lwd = c(1, 1), c
 
 ## Signalgraph can select proteins for network inference
 
-The ultimate goal of network inference is to predict novel edges.  Suppose a novel edge A -> B exists.  The causal network learning algorithm, as described above, ranks that edge with model averaging; it assigns a weight based on how frequently it appears across as set of individual learned networks.   The weight of the edge depends on what proteins are measured.  Firstly, A and B must both be measured in the input data or the edge obviously can't be detected and is effectively assigned a weight of 0.  Secondly, the measurement (or lack thereof) of other proteins affect the likelihood calculation of an edge, and thus its presence in learning results.   
-
-Therefore, the method of selecting proteins for measurement determines performance in detecting a novel edge with causal network learning. 
-
-We simulated 500 networks and compared naive topological selection to topology+data  selection in how they enable recovery of an chosen novel edge.  The simulation uses the following algorithm:
-
-1. Create a 12 protein model and use it to simulate input data where 5 proteins are unobserved. 
-2. Select an edge as the novel edge to be discover and remove it from the model's network structure.  Use the truncated network as the model input.
-3. Use the topology only and signalgraph approaches to select two proteins.
-4. For each approach, add the protein back into the data and apply causal inference algorithm.
-5. Compare the score of the novel edge.  
-
-Repeating this algorithm 100 times, I obtained the following distributions of novel edge scores.
-
-------
 
 
 
 
-```{r}
-library(ggplot2)
-sparcity <- c("no null edges", "25% null edges", "50% null edges", "75% null edges")
-coverage <- c("no data", "downstream only", "70% of proteins", "100% of proteins")
-#sim_results <- tcells$sim_results
-for(i in 1:10000){
-  naive_scores <- c(naive_scores, sample(c(0, rbeta(1, 2, 5)), 1, prob = c(.3, .7)))
-  proposed_scores <- c(proposed_scores, sample(c(0, rbeta(1, 2, 2)), 1, prob = c(.2, .8)))
-}
-m <- 20
-sim_data <- function(n, p){
-  rb <- rbeta(n, 2, 5)
-  samp <- sample(rb, floor(p * n))
-  c(samp, rep(0, ceiling((1-p) * n)))[sample(n)]
-}
-#naive 0 with probability .4
-#proposed with probaility .2
-m <- 10000
-sim_results <- data.frame(
-  approach = c(rep("proposed", m/2), rep("naive", m/2)),
-  sparcity = factor(sample(sparcity, m, replace = TRUE), levels = sparcity),
-  coverage = factor(sample(coverage, m, replace = TRUE), levels = coverage)) %>%
-  mutate(score= ifelse(approach == "naive", 
-                  sim_data(sum(approach == "naive"), .5), #naive sim
-                  sim_data(sum(approach != "proposed"), .9)), #proposed sim
-         score = ifelse(coverage == "no data",
-                         sim_data(sum(coverage == "no data"), .4), #from naive distribution
-                         score)
-    )
-g_plot <- ggplot(sim_results, aes(x = score)) +
-  geom_density(aes(fill=approach ), alpha = 0.5) + 
-  labs(title = "Distributions of Novel Edge Scores") + 
-  scale_x_continuous(breaks = c(0, .25, .5, .75)) +
-  facet_grid(coverage ~ sparcity)
-plot(g_plot)
-g_plot <- ggplot(my_data, aes(x = score)) +
-  geom_density(aes(fill=approach ), alpha = 0.5) + 
-  labs(title = "Distributions of Novel Edge Scores") + 
-  scale_x_continuous(breaks = c(0, .25, .5, .75)) +
-  facet_grid(network_size ~ data_coverage)
-plot(g_plot)
-```
+
+

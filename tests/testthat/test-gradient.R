@@ -38,7 +38,7 @@ g <- mlp_graph("age", "survived") %>%
   initializeGraph(select(titan, age, survived), fixed = "age") %>%
   {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
-  updateSignals
+  update_signals
 
 test_that("doChainRule in layer-free univarite produces logistic_prime(input * weight) * input", {
   skip("not doing gradient tests")

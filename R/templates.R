@@ -6,8 +6,9 @@
 #' @param m the number of desired nodes
 #' @param n the number of desired rows in the data
 #' @return A list of two elements, graph and data.
-rand_case <- function(m, n = m * m + m){
-  g <- lucy::generateMultiConnectedDAG(m) %>% nameVertices
+#' @export
+rand_case <- function(m, n = m * m + m, method = "ordered"){
+  g <- lucy::sim_DAG(m) %>% name_vertices
   roots <- V(g)[get_roots(g)]$name 
   leaves <- V(g)[get_leaves(g)]$name
   num_roots_leaves <- length(c(roots, leaves))
@@ -29,7 +30,7 @@ rand_case <- function(m, n = m * m + m){
 
 #' Generate a random unfit signalgraph object
 #' 
-#' Uses the generateMultiConnectedDAG in the lucy \url{https://github.com/osazuwa223/lucy} package.  
+#' Uses the sim_DAG in the lucy \url{https://github.com/osazuwa223/lucy} package.  
 #' Since the vertices that must have data are the roots and the leaves, (everything in between can be hidden),
 #' then a data frame is simulated for only those nodes.
 #' 
@@ -52,7 +53,7 @@ random_unfit_sg <- function(m, n = m * m + m, no_fixed_prob = .3, ...){
 
 #' Generate a random fitted signalgraph object
 #' 
-#' Uses the generateMultiConnectedDAG in the lucy \url{https://github.com/osazuwa223/lucy} package.  
+#' Uses the sim_DAG in the lucy \url{https://github.com/osazuwa223/lucy} package.  
 #' The vertices that must have data are the roots and the leaves, (everything in between can be hidden),
 #' so data is simulated for only those nodes.
 #' 
@@ -62,7 +63,7 @@ random_unfit_sg <- function(m, n = m * m + m, no_fixed_prob = .3, ...){
 #' @param no_fixed boolean if TRUE then all vertices are treated as random. Defaults to FALSE
 #' @return a signalgraph object
 #' @export
-random_fit_sg <- function(m, n, max.iter = 1, no_fixed = FALSE,...){
+random_sg <- function(m, n, max.iter = 1, no_fixed = FALSE,...){
   g <- rand_case(m, n)
   if(no_fixed){
     return(fitNetwork(g$g, g$data, ...))
@@ -80,15 +81,22 @@ random_fit_sg <- function(m, n, max.iter = 1, no_fixed = FALSE,...){
 #' 
 #' @param m the number of desired nodes
 #' @param n the number of desired rows in the data
+#' @param error_sd desired standard deviation for Gaussian error of logit(x)
 #' @param ... arguments past to fitNetwork, including graph attributes
 #' @return a signalgraph object
 #' @export
-sim_system <- function(m, n, ...){
+sim_system <- function(m, n, error_sd = .2, ...){
   g <- rand_case(m, n) %>%
-    {initializeGraph(.$g, .$data, ...)} 
+    {initializeGraph(.$g, .$data, fixed = get_roots(.$g), ...)} 
   fitted_vals <- get_fitted(g)
+  logit <- function(x) log(x / (1+x))
   for(node in names(fitted_vals)){
-    if(V(g)[node]$is.observed) V(g)[node]$observed <- list(fitted_vals[, node])
+    if(V(g)[node]$is.observed){
+      observed_val <- fitted_vals[, node] %>%
+        logit %>%
+        {1 / (1 + exp(-1 * (. + rnorm(n, sd = error_sd))))}
+      V(g)[node]$observed <- list(observed_val)
+    } 
   }
   g
 }
@@ -128,5 +136,5 @@ get_gate <- function(outputs = "all", layers=NULL){
       intersect(V(g)[is.bias])
     g <- igraph::induced.subgraph(g, setdiff(V(g), c(exclusion_nodes, nuisance_biases)))
   }
-  nameEdges(g) 
+  name_edges(g) 
 }

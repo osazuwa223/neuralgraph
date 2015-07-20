@@ -197,7 +197,7 @@ for(i in 1:100){
       .[1:2] %>% 
       {get_fitted(g)[unique(c(V(g)[is.observed]$name, .))]} %>%
       subset_learning("hc", resample = FALSE) %>%
-      {dplyr::mutate(., name = bninfo::nameEdges(.[,c(1,2)]))}
+      {dplyr::mutate(., name = bninfo::name_edges(.[,c(1,2)]))}
     proposed_score <- 0
     if(E(g)[novel_edge]$name %in% proposed_result$name){
       proposed_score <- proposed_result[proposed_result$name == E(g)[novel_edge]$name, ][, "strength"]
@@ -210,7 +210,7 @@ for(i in 1:100){
       .[1:2] %>% 
     {get_fitted(g)[unique(c(V(g)[is.observed]$name, .))]} %>%
       subset_learning("tabu", resample = FALSE) %>%
-    {dplyr::mutate(., name = bninfo::nameEdges(.[,c(1,2)]))}
+    {dplyr::mutate(., name = bninfo::name_edges(.[,c(1,2)]))}
     naive_score <- 0
     if(E(g)[novel_edge]$name %in% naive_result$name){
       naive_score <- naive_result[naive_result$name == E(g)[novel_edge]$name, ][, "strength"]

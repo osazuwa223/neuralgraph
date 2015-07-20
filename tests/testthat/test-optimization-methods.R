@@ -21,7 +21,7 @@ g <- mlp_graph("age", "survived") %>%
   initializeGraph(select(titan, age, survived), fixed = "age") %>%
   {induced.subgraph(., V(.)[c("age", "survived")])} %>% # Having removed the bias, I need to reupdate 
   resetUpdateAttributes %>%
-  updateSignals
+  update_signals
 
 ###########################################################################################
 # Tests of optimization of logistic activation :

@@ -84,7 +84,7 @@ getPrediction <- function(g, v, new_weights){
     ensure_that(length(E(.)[to(v)]) == length(new_weights),
                 err_desc = "# of weights doesn't match # of incoming edges.")
   E(prediction_graph)[to(v)]$weight <- new_weights
-  prediction_graph <- updateSignals(prediction_graph) %>%
+  prediction_graph <- update_signals(prediction_graph) %>%
     ensure_that({ #Make sure all the output signals are valid vectors
       lapply(V(.)[is.observed]$output.signal, checkVector) %>% unlist %>% all
     }, err_desc = "One observed vertex has invalid values in output.signal")

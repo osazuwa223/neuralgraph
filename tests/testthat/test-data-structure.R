@@ -1,11 +1,21 @@
 library(dplyr)
 devtools::load_all("../../R/optimization.R")
+option <- FALSE
 devtools::load_all("../../R/tools.R")
-option <- TRUE
+devtools::load_all("../../R/optimization.R")
+devtools::load_all("test_dir/test_helpers.R")
+#devtools::load_all("tests/testthat/test_dir/test_helpers.R")
 #devtools::load_all("R/optimization.R")
 #devtools::load_all("R/templates.R")
-context("Signal graph data structure")
-
+context("when building a signal graph object")
+test_that("loadMB produces the Markov blankets", {
+  case <- rand_case(8, 3)
+  g <- case$g
+  g <- loadMB(g)
+  for(v in V(g)){
+    expect_identical(V(g)[v]$causal_nbr, list(imb(g, v)))
+  }
+})
 test_that("initializeGraph generates a signalgraph with all the desirable attributes", {
   case <- rand_case(8, 3)
   g <- case$g
@@ -22,18 +32,6 @@ test_that("initializeGraph generates a signalgraph with all the desirable attrib
     all %>%
     expect_true
 })
-
-expect_none <- function(x) expect_true(sum(x) == 0)
-expect_one_or_more <- function(x) expect_true(any(x))  
-expect_all <- function(x) expect_true(all(x))
-expect_not_all <- function(x) expect_true(!all(x))
-unconstrained <- function(x) expect_true(TRUE)
-receives_input <- function(v_set,g) {
-  V(g)[v_set]$input.signal %>%
-    lapply(function(array) sum(is.na(array)) == 0) %>% 
-    unlist
-}
-
 test_that("observed nodes have correct attributes", {
   g <- random_unfit_sg(8, 10)
   observed <- V(g)[is.observed]
@@ -48,7 +46,6 @@ test_that("observed nodes have correct attributes", {
   observed$is.fixed %>% expect_not_all # There can be zero fixed or some but not all.
   #observed$is.fixed # Having no fixed variables is possible 
 })
-
 test_that("hidden nodes have correct attributes", {
   g <- random_unfit_sg(8, 3)
   hidden <- V(g)[is.hidden]
@@ -61,7 +58,6 @@ test_that("hidden nodes have correct attributes", {
   hidden$is.random %>% expect_all
   hidden$is.fixed %>% expect_none
 })
-
 test_that("biases have correct attributes", {
   g <- random_unfit_sg(8, 3)
   biases <- V(g)[is.bias]
@@ -74,7 +70,6 @@ test_that("biases have correct attributes", {
   biases$is.random %>% expect_none
   biases$is.fixed %>% expect_none
 })
-
 test_that("root nodes have correct attributes", {
   g <- random_unfit_sg(8, 3)
   roots <- V(g)[is.root]
@@ -99,7 +94,6 @@ test_that("leaf nodes have correct attributes", {
   leaves$is.random %>% expect_all # all the leaves must be random
   leaves$is.fixed %>% expect_none # none of the leaves can be fixed
 })
-
 test_that("random nodes have correct attributes", {
   g <- random_unfit_sg(8, 3)
   randoms <- V(g)[is.random]
@@ -113,7 +107,6 @@ test_that("random nodes have correct attributes", {
   randoms$is.random %>% expect_all # by definition
   randoms$is.fixed 
 })
-
 test_that("fixed nodes have correct attributes", {
   g <- random_unfit_sg(8, 3)
   fixed <- V(g)[is.fixed]
@@ -128,7 +121,6 @@ test_that("fixed nodes have correct attributes", {
   fixed$is.random %>% expect_none
   fixed$is.fixed %>% expect_all
 })
-
 
 test_that("MLP has expected boolean attributes.", {
   data(titanic3)
@@ -147,7 +139,6 @@ test_that("MLP has expected boolean attributes.", {
   V(g)[is.random]$name %>% expect_equal(c("H11", "H12", "H21", "survived"))
   V(g)[is.fixed]$name %>% expect_equal(c("age", "fare"))
 })
-
 test_that("fixed variables become roots, random variables become not-roots, and get biases ", {
   expect_equal(names(formals(initializeGraph)), c("g", "data", "fixed", "graph_attr"))
   expect_equal(names(formals(fitNetwork)), c("g", "data", "fixed", "graph_attr", "epsilon", "max.iter"))
@@ -156,7 +147,7 @@ test_that("fixed variables become roots, random variables become not-roots, and 
     rescale_df %>%
     .[[1]]
   fixed <- c("vs", "am", "gear")
-  g <- lucy::generateMultiConnectedDAG(8)
+  g <- lucy::sim_DAG(8)
   random <- setdiff(names(my_data), fixed)
   V(g)$name <- random
   g <- g + igraph::vertices(fixed)
@@ -166,12 +157,11 @@ test_that("fixed variables become roots, random variables become not-roots, and 
   expect_all(V(g)[random] == V(g)[is.random])
   expect_true(all(V(g)[fixed]$is.root))
 })
-
 test_that("an error is thrown if there are not at least 2 layers (roots and leaves must be mutually exclusive),
           part of this means it will not work on a single node graph input.", {
-            g1 <- graph.empty(1) %>% nameVertices
+            g1 <- graph.empty(1) %>% name_vertices
             data1 <- data.frame(runif(10)) %>% `names<-`("1")
-            g2 <- graph.empty(2) %>% nameVertices
+            g2 <- graph.empty(2) %>% name_vertices
             data2 <- data.frame(runif(10), runif(10)) %>% `names<-`(c("1", "2"))
             error = "There has to be at least 2 vertices and 1 directed edge."
             expect_error(initializeGraph(g1, data1), error)
@@ -202,7 +192,6 @@ test_that("an error is thrown if the data contains variables not in the graph", 
     transform(new_var = runif(nrow(test_data))) %>%
     {expect_error(initializeGraph(g, .), "\n  Data contains variables that are not named in the graph.\n")}
 })
-
 test_that("an error is thrown if the 'fixed' argument contains variables not in the data", {
   case <- rand_case(8, 3)
   g <- case$g
@@ -211,9 +200,6 @@ test_that("an error is thrown if the 'fixed' argument contains variables not in 
   expect_error(initializeGraph(g, test_data, fixed = fixed), 
                "\n  Specified fixed variables not found in the data\n")
 })
-
-
-
 test_that("if a vertex is not in a variable in the data, it becomes a hidden variable", {
   case <- rand_case(8, 3)
   g <- case$g
@@ -225,7 +211,6 @@ test_that("if a vertex is not in a variable in the data, it becomes a hidden var
     all %>% 
     expect_true
 })
-
 test_that("if a leaf is not observed in the data, an error is thrown", {
   case <- rand_case(8, 3)
   g <- case$g
@@ -233,7 +218,6 @@ test_that("if a leaf is not observed in the data, an error is thrown", {
     {`[`(.,setdiff(names(.), V(g)[get_leaves(g)[1]]))}
   expect_error(initializeGraph(g, test_data), "Graph leaves must be observed in the data.")
 })
-
 test_that("initializeEdges provides a graph with 'weight' edge attribute and if the attribute
           already exists, they should have been changed.", {
             case <- rand_case(8, 3)
@@ -298,17 +282,13 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
     {length(.) == 0} %>%
     expect_true
 })
-
 test_that("adjusting 'min.max.constraint' argument gives broader initial weights.", {
   case <- rand_case(5)
   .data <- case$data
   case$g %>% 
     initializeGraph(.data, graph_attr = list(min.max.constraints = c(-100, 100))) %>%
-    {E(.)$weight}
-  
-    
+    {E(.)$weight}    
 })
-
 test_that("fitNetwork returns a graph structure", {
   long_test(option)
   g <- random_unfit_sg(3, 2)
@@ -317,14 +297,12 @@ test_that("fitNetwork returns a graph structure", {
   g_fit <- fitNetwork(g_structure, observed, max.iter = 1)
   expect_true(class(g_fit) == "igraph")
 })
-
 test_that("after the weights of a given vertex has changed, the prediction should change",{
   g <- get_gate("AND")
   original <- V(g)[is.observed]$output.signal %>% unlist
   updated <- getPrediction(g, V(g)["AND"], runif(3))
   expect_true(!identical(original, updated))
 })
-
 test_that("after a pass at fitting, all edges have been traversed.", {
   long_test(option)
   g1 <- get_gate("AND", c(3, 2))
@@ -335,9 +313,6 @@ test_that("after a pass at fitting, all edges have been traversed.", {
     all %>%
     expect_true
 })
-
-
-
 test_that("test that if the updated status of biases/roots and input nodes ever change, an error is thrown", {
   long_test(option)
   data(titanic3)
@@ -349,5 +324,5 @@ test_that("test that if the updated status of biases/roots and input nodes ever 
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
     {initializeGraph(., data = dplyr::select(titan, age, fare, survived), fixed = c("age", "fare"))}
   V(g)[is.root]$updated <- FALSE
-  expect_error(fitInitializedNetwork(g,  epsilon = .01, max.iter = 1), "Roots should not have FALSE value for updated attribute.")
+  expect_error(fit_initialized_sg(g,  epsilon = .01, max.iter = 1), "Roots should not have FALSE value for updated attribute.")
 })

@@ -1,12 +1,12 @@
 devtools::load_all("../../R/tools.R")
 #devtools::load_all("R/tools.R")
-option <- TRUE
+option <- FALSE
 context("Models gets reasonable fits")
 
 test_that("despite not working a single node graph input, regression on a constant works if the constant
           is given explicity.", {
             long_test(option)
-            g_const <- graph.empty(2) %>% nameVertices %>% `+`(edge(c("2", "1"))) 
+            g_const <- graph.empty(2) %>% name_vertices %>% `+`(edge(c("2", "1"))) 
             data2 <- data.frame(runif(10), rep(1, 10)) %>% `names<-`(c("1", "2"))
             fitNetwork(g_const, data2, max.iter = 1)
           })
@@ -20,7 +20,7 @@ test_that("in an initialized neural net style model where the predicted and obse
   #Set the observed values exactly to the predicted values
   V(g)[is.observed]$observed <- V(g)[is.observed]$output.signal
   # After fitting I expect no changes
-  g2 <- fitInitializedNetwork(g, .05, max.iter = 1)
+  g2 <- fit_initialized_sg(g, .05, max.iter = 1)
   # The difference between predicted and observed should still be 0
   expect_equal(getMSE(g2), 0, .001)
   # The weights should be unchanged
@@ -51,10 +51,10 @@ test_that("multi-layer model has less loss than nls given it has more parameters
   set.seed(33)
   g <- mlp_graph(c("age", "fare"), "survived", c(2, 1)) %>%
     {initializeGraph(., data = dplyr::select(titan, age, fare, survived), fixed = c("age", "fare"))}
-  fit <- fitInitializedNetwork(g,  epsilon = .01, max.iter = 2)
+  fit <- fit_initialized_sg(g,  epsilon = .01, max.iter = 2)
   nls_fit <-  nls(survived ~ logistic(w0 + w1 * age + w2 * fare), data = titan, 
                   start = as.list(structure(E(g)[to("H11")]$weight, names = c("w1", "w2", "w0"))))
-  expect_less_than(get_vertex_mse(fit, V(g)["survived"]), deviance(nls_fit))
+  expect_less_than(vertexMSE(fit, V(g)["survived"]), deviance(nls_fit))
 })
 
 test_that("model should perform a reasonable MLP prediction on a toy problem with single output.", {

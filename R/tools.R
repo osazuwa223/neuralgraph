@@ -88,13 +88,13 @@ sg_viz <- function(g, main = NULL, show_biases = FALSE){
   col[V(g)$is.hidden] <- "blue"
   if("is.bias" %in% list.vertex.attributes(g)) col[V(g)$is.bias] <- "grey"
   node_list <- list(fill = col) 
-  g_out <- g %>% nameVertices %>% # Give vertices names if they do not have nay 
+  g_out <- g %>% name_vertices %>% # Give vertices names if they do not have nay 
     igraph.to.graphNEL(.) %>% # convert to a graphNEL
-{Rgraphviz::layoutGraph(.)} %>% # lay the graph out
-{graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
-if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
-Rgraphviz::renderGraph(g_out) # Render the graph
-graph::graph.par(list(graph = list(main = ""))) # Reset graph parameters
+    {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
+    {graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
+  if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
+  Rgraphviz::renderGraph(g_out) # Render the graph
+  graph::graph.par(list(graph = list(main = ""))) # Reset graph parameters
 }
 
 #' Convert logistic activation parameters to parameters in u / (1 + u) function
@@ -128,11 +128,21 @@ get_structure <- function(g){
 }
 
 #' Get the mean squared error for a given vertex
+#' 
+#' vertexMSEs retrieves Get the mean squared error for all the random vertices
 #' @param g a signalgraph object
 #' @param v a vertex id in the signal graph
 #' @return means squared error calculation
 #' @export
-get_vertex_mse <- function(g, v){
+vertexMSE <- function(g, v){
   if(!V(g)[v]$is.random) stop("vertex is not a random variable.")
   (sum(unlist(V(g)[v]$observed) - unlist(V(g)[v]$output.signal))^2) / g$n
+}
+#' @rdname vertexMSE
+#' @export
+vertexMSEs <- function(g){
+  observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
+  lapply(V(g)[observed_and_random], function(v) vertexMSE(g, v)) %>%
+    unlist %>%
+    structure(names = V(g)[observed_and_random]$name)
 }

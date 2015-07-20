@@ -1,4 +1,17 @@
-
+#' Load Markov Blankets
+#' 
+#' A Markov neighborhood for a given feature is the set of feature that includes that feature itself, and
+#' all the nodes with which it shares a causal relationship.  If causality is given by a DAG, then it is
+#' equivilent to the node and its Markov blanket.  This function adds this latter Markov blanket + identity 
+#' based Markov neighborhood.
+#' @param g a signalgraph
+#' @export
+loadMB <- function(g){
+  for(v in V(g)){
+    V(g)[v]$causal_nbr <- list(imb(g, v)) 
+  }
+  g
+}
 
 #' Check validity of arguments
 #' 
@@ -265,7 +278,7 @@ initializeVertices <- function(g, data, fixed){
 #' @return g igraph object
 initializeEdges <- function(g){
   g %>% 
-    nameEdges %>% 
+    name_edges %>% 
     initializeWeights 
 }
 
@@ -299,5 +312,5 @@ initializeGraph <- function(g, data, fixed = NULL, graph_attr = NULL){
     initializeGraphAttributes(graph_attr, nrow(data)) %>% # Add the graph attributes
     initializeVertices(data, fixed) %>% # Add biases and vertex attributes
     initializeEdges %>% # Add edge weights
-    updateSignals # update vertex values given weights
+    update_signals # update vertex values given weights
 }

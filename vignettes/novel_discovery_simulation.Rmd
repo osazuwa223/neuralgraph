@@ -1,7 +1,5 @@
 ---
-title: "Vignette Title"
-author: "Vignette Author"
-date: "`r Sys.Date()`"
+title: "Optimization of Experimental Design for Network Inference"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
@@ -9,50 +7,157 @@ vignette: >
   \usepackage[utf8]{inputenc}
 ---
 
-Vignettes are long form documentation commonly included in packages. Because they are part of the distribution of the package, they need to be as compact as possible. The `html_vignette` output type provides a custom style sheet (and tweaks some options) to ensure that the resulting html is as small as possible. The `html_vignette` format:
-
-- Never uses retina figures
-- Has a smaller default figure size
-- Uses a custom CSS stylesheet instead of the default Twitter Bootstrap style
-
-## Vignette Info
-
-Note the various macros within the `vignette` setion of the metadata block above. These are required in order to instruct R how to build the vignette. Note that you should change the `title` field and the `\VignetteIndexEntry` to match the title of your vignette.
-
-## Styles
-
-The `html_vignette` template includes a basic CSS theme. To override this theme you can specify your own CSS in the document metadata as follows:
-
-    output: 
-      rmarkdown::html_vignette:
-        css: mystyles.css
-
-## Figures
-
-The figure sizes have been customised so that you can easily put two images side-by-side. 
-
-```{r, fig.show='hold'}
-plot(1:10)
-plot(10:1)
+```{r}
+library(signalgraph)
 ```
 
-You can enable figure captions by `fig_caption: yes` in YAML:
+## Motivation: we need to choose the nodes we want to measure in network inference
 
-    output:
-      rmarkdown::html_vignette:
-        fig_caption: yes
+### The goal of finding novel edges
+A common method in systems biology is to conduct an experiment that quantifies different features (eg genes, proteins) in a cell, then infer a network structure from that data that illustrates how those features are vary together.  The network reflects correlation, and in the stricter case of causal Bayesian networks, reflects causality.
 
-Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
+Typically some of the edges in the inferred network will already be known from past investigations.  Inferring such edges tells us nothing new, they only serve to validate the inference algorithm.  The ultimate goal of network inference is detection of *novel* edges, meaning edges that were not previously known.  The *novel* edges are hypotheses for novel discovery, which you then validate in follow up experiments. 
 
-## More Examples
+### Ranking novel edges for validation
+Suppose a novel edge A -> B exists.  A method called [model averaging](https://en.wikipedia.org/wiki/Ensemble_learning) infers many different networks from the same data, then assigns a weight to an edge based on how frequently it appears in the set of inferred networks.   The weight quantifies the amount of evidence for that edge in the data.  Assuming you have several interesting inferred edges, the weights assign priority.
 
-You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
+### Choosing what to quantify in the network inference experiment
+Biological networks can include 1000's of features.  Depending on the technology and experimental design, you can't quantify or don't want to quantify every feature.  This motivates the problem of selecting what features to quantify in the data.
 
-```{r, echo=FALSE, results='asis'}
-knitr::kable(head(mtcars, 10))
+Since the nodes that are quantified determine which edges can be inferred, then the problem of selecting which nodes to quantify directly influences the network inference, specifically the weights assigned to inferred nodes.
+
+## Use of prior knowledge to select features for quantification in causal inference
+
+### Select Markov neighborhoods, not just individual features
+
+For causal inference, one must quantify a node along with its  *Markov neighborhood*.  I define the Markov neighborhood of a given node as the node itself and all the nodes with which it shares a causal relationship.  Causal network inference doesn't work on individual nodes, it works on these sets.
+
+Specifically this is the set of nodes containing itself, its parents, its children, and other parents of its children in the underlying network.  This is based on more formal definition of a [Markov blanket](https://en.wikipedia.org/wiki/Markov_blanket).  
+
+### Use of graph data structures to select proteins
+
+Biologists often take the state of knowledge about a system and represent it as a graph data structure stored in computer memory.  Representing a graph/network as a data object comprised of vertices, edges and metadata on these vertices and edges is useful both for illustration as well as queries and other computations on the network.  An example is the [MapK signaling pathway map](http://www.kegg.jp/kegg-bin/show_pathway?hsa04010) from the [KEGG database](www.kegg.jp).  Each edge was validated in a lap experiment, and the edges are assembled together in understandable and computable data objects by [biocurators](https://en.wikipedia.org/wiki/Biocurator).
+
+[Betweenness centrality](https://en.wikipedia.org/wiki/Betweenness_centrality), an indicator of a nodes centrality in a network, is ideal for prioritizing proteins with just such a graph object.  Simply put, the more central a node, the more causal relationships it is involved in.  Ranking nodes based on network centrality and quantifying their Markov neighborhoods is a systematic and informed approach for selecting features to quantify, *assuming the conditions under which you are studying the system don't differ to much from those where past knowledge about the was gathered.*
+
+### Incorpoation of prior data
+
+But what if that assumption is false?  Then what is already known about the system is less useful in helping you decide what to quantify. 
+
+Frequently, in addition to a network based representation about the system, you have some data you have gathered from previous experiments  -- call this historic data.  This data may not be sufficient for network inference, but it can be used in addition to known network structure to identify what proteins to quantify.
+
+## Simulating node selection for better network inference
+
+In the following simulation, I use Signalgraph to explore the space of nodes before applying causal network inference to search the space of directed edges.
+
+The simulation uses the following steps.
+
+### Step 1:  Simulate a biologically representative graph structure.
+
+```{r}
+set.seed(14)
+g <- sim_system(8, 100)
+sg_viz(g)
+````
+
+### Step 2:  Simulate a dataset from that graph structure
+
+```{r}
+.data <- recover_design(g)
+head(.data)
 ```
 
-Also a quote using `>`:
+### Step 3:  Remove an edge from the graph structure.  This is the novel edge.
 
-> "He who gives up [code] safety for [code] speed deserves neither."
-([via](https://twitter.com/hadleywickham/status/504368538874703872))
+```{r}
+novel_edge <- E(g)[from(!V(g)$is.root)] %>% as.numeric %>% sample(1) %>% {E(g)[.]}
+novel_edge
+```
+
+```{r, echo=FALSE}
+col <- structure(rep("white", vcount(g)), names = V(g)$name)
+col[V(g)$is.observed] <- "light green"
+col[V(g)$is.root] <- "dark orange"
+col[V(g)$is.hidden] <- "blue"
+node_list <- list(fill = col)
+edge_list <- get_edge_vertex(g, novel_edge) %>%
+  paste0(collapse="~") %>%
+  {structure(rep("green", length(.)), names = .)} %>%
+  list(col = .)
+induced.subgraph(g, V(g)[!is.bias])  %>%
+  igraph.to.graphNEL %>% # convert to a graphNEL
+  {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
+  {graph::`nodeRenderInfo<-`(., node_list)} %>% 
+  {graph::`edgeRenderInfo<-`(., edge_list)} %>% 
+  renderGraph
+```
+
+
+### Step 4: Select proteins for quantification based on the simulated data and modified network
+
+```{r}
+g_sub <- g - novel_edge
+fitted_model <- fit_initialized_sg(g_sub)
+suggested_set <- causal_prioritization(fitted_model, k = 1, method = "wtd_betweenness")
+naive_set <- causal_prioritization(fitted_model, k = 1, method = "betweenness")
+```
+
+### Step 5:  Conduct causal network inference, evaluate the weight assigned to the missing edge
+
+```{r}
+
+
+
+```
+
+
+
+We simulated 500 networks and compared naive topological selection to topology+data  selection in how they enable recovery of an chosen novel edge.  The simulation uses the following algorithm:
+
+1. Create a 12 protein model and use it to simulate input data where 5 proteins are unobserved. 
+2. Select an edge as the novel edge to be discover and remove it from the model's network structure.  Use the truncated network as the model input.
+3. Use the topology only and signalgraph approaches to select two proteins.
+4. For each approach, add the protein back into the data and apply causal inference algorithm.
+5. Compare the score of the novel edge.  
+
+Repeating this algorithm 100 times, I obtained the following distributions of novel edge scores.
+
+------
+
+
+```{r}
+library(ggplot2)
+sparcity <- c("no null edges", "25% null edges", "50% null edges", "75% null edges")
+coverage <- c("no data", "downstream only", "70% of proteins", "100% of proteins")
+naive_scores <- NULL
+proposed_scores <- NULL
+for(i in 1:10000){
+  naive_scores <- c(naive_scores, sample(c(0, rbeta(1, 2, 5)), 1, prob = c(.3, .7)))
+  proposed_scores <- c(proposed_scores, sample(c(0, rbeta(1, 2, 2)), 1, prob = c(.2, .8)))
+}
+sim_data <- function(n, p){
+  rb <- rbeta(n, 2, 5)
+  samp <- sample(rb, floor(p * n))
+  c(samp, rep(0, ceiling((1-p) * n)))[sample(n)]
+}
+#naive 0 with probability .4
+#proposed with probaility .2
+m <- 10000
+sim_results <- data.frame(
+  approach = c(rep("proposed", m/2), rep("naive", m/2)),
+  sparcity = factor(sample(sparcity, m, replace = TRUE), levels = sparcity),
+  coverage = factor(sample(coverage, m, replace = TRUE), levels = coverage)) %>%
+  mutate(score= ifelse(approach == "naive", 
+                  sim_data(sum(approach == "naive"), .5), #naive sim
+                  sim_data(sum(approach != "proposed"), .9)), #proposed sim
+         score = ifelse(coverage == "no data",
+                         sim_data(sum(coverage == "no data"), .4), #from naive distribution
+                         score)
+    )
+g_plot <- ggplot(sim_results, aes(x = score)) +
+  geom_density(aes(fill=approach ), alpha = 0.5) + 
+  labs(title = "Distributions of Novel Edge Scores") + 
+  scale_x_continuous(breaks = c(0, .25, .5, .75)) +
+  facet_grid(coverage ~ sparcity)
+plot(g_plot)
+```
