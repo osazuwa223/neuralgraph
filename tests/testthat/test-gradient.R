@@ -3,12 +3,12 @@
 # Note May 10, 2015.  The gradient tests are currently failing.  I believe the gradient calculation is erroneous, though 
 # I am not sure where
 
-devtools::load_all("../../R/optimization.R")
-devtools::load_all("../../R/tools.R")
+# devtools::load_all("../../R/optimization.R")
+# devtools::load_all("../../R/tools.R")
 #devtools::load_all("R/optimization.R")
 #devtools::load_all("R/tools.R")
-library(plyr)
-library(dplyr)
+library(plyr, quietly = TRUE)
+library(dplyr, quietly = TRUE)
 context("Optimization with specified gradient")
 
 test_that("logistic_prime basic function is working as expected", {

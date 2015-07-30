@@ -8,24 +8,24 @@
 #' @return A list of two elements, graph and data.
 #' @export
 rand_case <- function(m, n = m * m + m, method = "ordered"){
-  g <- lucy::sim_DAG(m) %>% name_vertices
+  g <- lucy::sim_DAG(m, method = method) %>% name_vertices
   roots <- V(g)[get_roots(g)]$name 
   leaves <- V(g)[get_leaves(g)]$name
   num_roots_leaves <- length(c(roots, leaves))
   k <- sample(num_roots_leaves:m, 1) # Number of observed nodes
-  data <- c(lapply(roots, function(root) runif(n)), 
+  .data <- c(lapply(roots, function(root) runif(n)), 
             lapply(leaves, function(leaf) runif(n))) %>%
     as.data.frame %>%
     `names<-`(c(roots, leaves))
   if(k > num_roots_leaves){
     observed_middle_nodes <- setdiff(V(g)$name, c(leaves, roots)) %>% 
       sample(k - num_roots_leaves)
-    data <- lapply(observed_middle_nodes, FUN = function(item) runif(n)) %>%
+    .data <- lapply(observed_middle_nodes, FUN = function(item) runif(n)) %>%
       as.data.frame %>%
       `names<-`(observed_middle_nodes) %>%
-      cbind(data)
+      cbind(.data)
   } 
-  list(g = g, data = data)
+  list(g = g, data = .data)
 }
 
 #' Generate a random unfit signalgraph object
@@ -87,10 +87,11 @@ random_sg <- function(m, n, max.iter = 1, no_fixed = FALSE,...){
 #' @export
 sim_system <- function(m, n, error_sd = .2, ...){
   g <- rand_case(m, n) %>%
-    {initializeGraph(.$g, .$data, fixed = get_roots(.$g), ...)} 
+    {initializeGraph(.$g, .$data, fixed = get_roots(.$g), ...)} %>%
+    loadCN
   fitted_vals <- get_fitted(g)
   logit <- function(x) log(x / (1+x))
-  for(node in names(fitted_vals)){
+  for(node in names(fitted_vals)){ 
     if(V(g)[node]$is.observed){
       observed_val <- fitted_vals[, node] %>%
         logit %>%
@@ -99,6 +100,76 @@ sim_system <- function(m, n, error_sd = .2, ...){
     } 
   }
   g
+}
+
+resetUpdateAttributes <- function(g){
+  root_update <- V(g)[is.root]$updated
+  if(!is.null(root_update)){
+    if(any(!(root_update))) stop("Roots should not have FALSE value for updated attribute.")
+  }
+  V(g)$updated <- FALSE
+  E(g)$updated <- FALSE
+  V(g)[V(g)$is.root]$updated <- TRUE
+  g
+}
+#
+calculateVals <- function(g, v){ 
+  weight_vector <- matrix(E(g)[to(v)]$weight, ncol=1)
+  linear_combination <- iparents(g, v) %>%
+    ensure_that(length(.) > 0) %>%
+{do.call("cbind", V(g)[.]$output.signal)} %>%
+  `%*%`(weight_vector) %>% 
+  as.numeric %>%
+  ensure_that(checkVector(.))
+V(g)[v]$input.signal <- list(linear_combination) # Add it to input signal attribute
+if(!is.null(g$activation.prime)){
+  V(g)[v]$f.prime.input <- list(g$activation.prime(linear_combination)) # Apply f prime and add to the f prime input signal attribute
+}
+output <- g$activation(linear_combination) # apply activation function and add it to activation function attribute
+V(g)[v]$output.signal <- list(output)
+V(g)[v]$output.signal %>% unlist %>% 
+  ensure_that(checkVector(.))
+g
+}
+
+checkVector <- function(item){
+  valid <- TRUE
+  if(any(is.na(item))) valid <- FALSE
+  if(any(is.infinite(item))) valid <- FALSE
+  if(length(item) == 0) valid <- FALSE
+  valid
+}
+
+update_signals <- function(g){
+  update_vertices(g, getDeterminers = lucy::iparents, callback = calculateVals)
+}
+
+#' Simulate data from a signal graph
+#' 
+#' Simulates new data for all the fixed variables and propagates those changes
+#' through the rest of the system.
+#' @param g a signal graph object
+#' @param n desired number of rows in output dataframe
+#' @param add_error if true, adds noise to each column in output dataframe using the jitter function.
+#' @return a dataframe of data
+#' @export
+sim_system_data <- function(g, n, add_error = FALSE){
+  prediction_graph <- resetUpdateAttributes(g)
+  fixed_v <- V(prediction_graph)[is.fixed]
+  # First sim new values for the output signal
+  prediction_graph$n <- n
+  for(v in fixed_v){
+    V(prediction_graph)[v]$output.signal <- list(runif(n))
+  }
+  prediction_graph <- update_signals(prediction_graph) 
+  # Pull the values into a data 
+  .data <- get_fitted(prediction_graph)
+  if(add_error) {
+    .data <- lapply(.data, jitter) %>%
+      as.data.frame %>%
+      `names<-`(names(.data))
+  }
+  .data
 }
 
 #' Create an signal graph model of a multi-layer perceptron logic gate (unfit case).

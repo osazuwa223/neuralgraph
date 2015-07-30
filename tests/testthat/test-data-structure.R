@@ -1,19 +1,29 @@
 library(dplyr)
-devtools::load_all("../../R/optimization.R")
 option <- FALSE
-devtools::load_all("../../R/tools.R")
-devtools::load_all("../../R/optimization.R")
-devtools::load_all("test_dir/test_helpers.R")
+# devtools::load_all("../../R/optimization.R")
+# devtools::load_all("../../R/tools.R")
+# devtools::load_all("test_dir/test_helpers.R")
+source("test_dir/test_helpers.R")
 #devtools::load_all("tests/testthat/test_dir/test_helpers.R")
 #devtools::load_all("R/optimization.R")
 #devtools::load_all("R/templates.R")
+# expect_none <- function(x) expect_true(sum(x) == 0)
+# expect_one_or_more <- function(x) expect_true(any(x))  
+# expect_all <- function(x) expect_true(all(x))
+# expect_not_all <- function(x) expect_true(!all(x))
+# unconstrained <- function(x) expect_true(TRUE)
+# receives_input <- function(v_set, g) {
+#   V(g)[v_set]$input.signal %>%
+#     lapply(function(array) sum(is.na(array)) == 0) %>% 
+#     unlist
+# }
 context("when building a signal graph object")
 test_that("loadMB produces the Markov blankets", {
   case <- rand_case(8, 3)
-  g <- case$g
-  g <- loadMB(g)
+  g <- case$g %>% induced.subgraph(V(g)[!is.bias])
+  g <- loadCN(g)
   for(v in V(g)){
-    expect_identical(V(g)[v]$causal_nbr, list(imb(g, v)))
+    expect_identical(V(g)[v]$causal_nbr, list(c(imb(g, v),v)))
   }
 })
 test_that("initializeGraph generates a signalgraph with all the desirable attributes", {
@@ -32,6 +42,7 @@ test_that("initializeGraph generates a signalgraph with all the desirable attrib
     all %>%
     expect_true
 })
+
 test_that("observed nodes have correct attributes", {
   g <- random_unfit_sg(8, 10)
   observed <- V(g)[is.observed]
@@ -211,6 +222,10 @@ test_that("if a vertex is not in a variable in the data, it becomes a hidden var
     all %>% 
     expect_true
 })
+test_that("initializeGraph makes the output signal of fixed variables equivilent to their observed values"{
+  expect_true(FALSE)
+})
+
 test_that("if a leaf is not observed in the data, an error is thrown", {
   case <- rand_case(8, 3)
   g <- case$g
@@ -306,7 +321,7 @@ test_that("after the weights of a given vertex has changed, the prediction shoul
 test_that("after a pass at fitting, all edges have been traversed.", {
   long_test(option)
   g1 <- get_gate("AND", c(3, 2))
-  g2 <- updateEdges(g1, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
+  g2 <- update_edges(g1, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
   # We know an edge is traversed when fitWeightsForEdgeTarget sets 'updated' attribute to 'TRUE'.
   c(!E(g1)$updated,  # All edges should initially be unupdated
     E(g2)$updated) %>% # All edges should finally be updated

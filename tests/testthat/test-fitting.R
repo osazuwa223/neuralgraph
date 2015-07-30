@@ -1,6 +1,22 @@
-devtools::load_all("../../R/tools.R")
+# devtools::load_all("../../R/tools.R")
 #devtools::load_all("R/tools.R")
 option <- FALSE
+library(dplyr, quietly = TRUE)
+test_that("model reproduces deterministic connection between nodes.", { 
+  g <- data.frame(from = c("A", "B", "C", "D"),
+                  to = c("C", "C", "E", "E")) %>%
+    graph.data.frame 
+  w.0_c = .2; w.a_c = .3; w.b_c = .5; w.0_e = -.2; w.c_e = -4; w.d_4 = 5
+  .data <- data.frame(A = runif(10),
+                      B = runif(10),
+                      D = runif(10)) %>%
+    mutate(C = logistic(w.0_c + w.a_c * A + w.b_c * B ),
+           E = logistic(w.0_e + w.c_e * C + w.d_4 * D))
+  fit <- fitNetwork(g, .data, graph_attr = c(L1_pen = 0, L2_pen = 0))
+  expect_equal(getMSE(fit), 0)  
+})
+
+
 context("Models gets reasonable fits")
 
 test_that("despite not working a single node graph input, regression on a constant works if the constant
@@ -96,6 +112,7 @@ test_that("L2 norm has less sum squares of fitted weight than unpenalized.", {
                        epsilon = .01, max.iter = 1)}
   expect_less_than(sum(E(g_pen)$weight^2), sum(E(g_no_pen)$weight^2))  
 })
+
 
 
 

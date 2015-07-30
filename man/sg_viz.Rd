@@ -4,7 +4,7 @@
 \alias{sg_viz}
 \title{Visualize a signal graph object}
 \usage{
-sg_viz(g, main = NULL, show_biases = FALSE)
+sg_viz(g, main = NULL, sub = NULL, show_biases = FALSE)
 }
 \description{
 Visualize a signal graph object

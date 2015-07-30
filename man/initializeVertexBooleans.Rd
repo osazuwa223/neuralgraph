@@ -7,7 +7,7 @@
 initializeVertexBooleans(g)
 }
 \value{
-g
+signal graph object
 }
 \description{
 There are 4 core boolean vertex attributes:

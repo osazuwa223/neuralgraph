@@ -55,8 +55,8 @@ The simulation uses the following steps.
 ### Step 1:  Simulate a biologically representative graph structure.
 
 ```{r}
-set.seed(14)
-g <- sim_system(8, 100)
+set.seed(19)
+g <- sim_system(11, 100)
 sg_viz(g)
 ````
 
@@ -70,26 +70,39 @@ head(.data)
 ### Step 3:  Remove an edge from the graph structure.  This is the novel edge.
 
 ```{r}
-novel_edge <- E(g)[from(!V(g)$is.root)] %>% as.numeric %>% sample(1) %>% {E(g)[.]}
+get_novel_edge <- function(g){
+  E(g)[from(!V(g)$is.root)] %>% 
+    as.numeric %>% 
+    sample(1) %>% 
+    {E(g)[.]} 
+}
+novel_edge <- get_novel_edge(g) 
 novel_edge
 ```
 
 ```{r, echo=FALSE}
-col <- structure(rep("white", vcount(g)), names = V(g)$name)
-col[V(g)$is.observed] <- "light green"
-col[V(g)$is.root] <- "dark orange"
-col[V(g)$is.hidden] <- "blue"
-node_list <- list(fill = col)
-edge_list <- get_edge_vertex(g, novel_edge) %>%
-  paste0(collapse="~") %>%
-  {structure(rep("green", length(.)), names = .)} %>%
-  list(col = .)
-induced.subgraph(g, V(g)[!is.bias])  %>%
-  igraph.to.graphNEL %>% # convert to a graphNEL
-  {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
-  {graph::`nodeRenderInfo<-`(., node_list)} %>% 
-  {graph::`edgeRenderInfo<-`(., edge_list)} %>% 
-  renderGraph
+sim_plotter <- function(g, novel_edge, main = NULL, sub = NULL){
+  col <- structure(rep("white", vcount(g)), names = V(g)$name)
+  col[V(g)$is.observed] <- "light green"
+  col[V(g)$is.root] <- "dark orange"
+  col[V(g)$is.hidden] <- "blue"
+  node_list <- list(fill = col)
+  edge_list <- novel_edge %>%
+    {get_edge_vertex(g, .)} %>%
+    {V(g)[.]$name} %>%
+    paste0(collapse="~") %>%
+    {structure(rep("green", length(.)), names = .)} %>%
+    list(col = .)
+  g_out <- induced.subgraph(g, V(g)[!is.bias])  %>%
+    igraph.to.graphNEL %>% # convert to a graphNEL
+    {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
+    {graph::`nodeRenderInfo<-`(., node_list)} %>% 
+    {graph::`edgeRenderInfo<-`(., edge_list)} 
+  graph::graph.par(list(graph = list(main = main, sub = sub)))
+  Rgraphviz::renderGraph(g_out)
+}
+
+sim_plotter(g, novel_edge)
 ```
 
 
@@ -98,19 +111,78 @@ induced.subgraph(g, V(g)[!is.bias])  %>%
 ```{r}
 g_sub <- g - novel_edge
 fitted_model <- fit_initialized_sg(g_sub)
-suggested_set <- causal_prioritization(fitted_model, k = 1, method = "wtd_betweenness")
-naive_set <- causal_prioritization(fitted_model, k = 1, method = "betweenness")
+suggested_sets <- causal_prioritization(fitted_model, k = 2)
+mse_set <- suggested_sets$mse_set
+btw_set <- suggested_sets$btw_set
 ```
 
 ### Step 5:  Conduct causal network inference, evaluate the weight assigned to the missing edge
 
-```{r}
-
-
-
+Causal learning algo:
+```{r, echo=FALSE}
+#source("/Users/robertness/Dropbox/code/signalgraph/inst/extdata/novel_discovery_simulation.R")
 ```
 
+```{r, echo = FALSE}
+causal_learning_instance <- function(g, selection_set, target_edge){
+  zero_output <- data.frame(
+    from = target_edge[1],
+    to = target_edge[2],
+    strength = 0, 
+    direction = 0)
+  # I wrap this workflow into a function for legibility
+  # Background
+  #   The following calculate the weight of the novel edge from the data
+  #   1. Generate 500 random graph consistent with the white list.
+  #   2. Run a tabu search using BIC as the scoring function, and a tabu length of 50
+  #   3. Calculate weight of edge model averaging results.
+  fixed <- V(g)[is.fixed]$name # Grab fixed names
+  data_vars <- unique(c(fixed, selection_set)) # These are the variables  
+  if(!all(target_edge %in% data_vars)) return(zero_output)
+  .data <- sim_system_data(g, 100, add_error = TRUE)[, data_vars] %>% # simulation 10000 data points
+    {bnlearn::discretize(., method = "hartemink", breaks = 3)} # discretize them into 3 levels
+  whitelist <- E(g)[from(fixed)] %>% # Create a white list of fixed effects edges
+    {data.frame(
+      from = V(g)[get_edge_vertex(g, ., "from")]$name,
+      to = V(g)[get_edge_vertex(g, ., "to")]$name
+    )} %>% 
+    {dplyr::filter(., to %in% data_vars)} %>%
+    as.matrix
+  blacklist <- expand.grid(data_vars, fixed) %>% # Create a black list excluding edges to the to the fixed effects 
+    apply(2, gsub, pattern = " ", replacement = "")
+  # Causal learning algorithm:
+  #   The following calculate the weight of the novel edge from the data
+  #   1. Generate 500 random graph consistent with the white list.
+  #   2. Run a tabu search using BIC as the scoring function, and a tabu length of 50
+  #   3. Calculate weight of edge model averaging results.
+  random <- intersect(selection_set, V(g)[is.random]$name)
+  strength_table <- selection_set %>% 
+    intersect(V(g)[is.random]$name) %>%
+    {bnlearn::random.graph(., num = 50)} %>%
+    lapply(function(net){
+      bnlearn::empty.graph(c(fixed, random)) %>%
+      {bnlearn::`arcs<-`(., value = rbind(bnlearn::arcs(net), whitelist))}
+    }) %>%
+    lapply(function(start_net){
+      bnlearn::tabu(.data, start = start_net, whitelist, blacklist, score = "loglik", tabu = 50)
+    }) %>%
+    {bnlearn::custom.strength(., data_vars)} 
+  output <- strength_table %>%
+    {dplyr::filter(., from == target_edge[1],
+               to == target_edge[2])}
+  if(nrow(output) == 0) { # If the edge was not detected, add zeros.
+    output <- zero_output
+  }
+  output
+}
+``` 
 
+
+```{r}
+novel_edge_named <- V(g)[get_edge_vertex(g, novel_edge)]$name
+causal_learning_instance(g, mse_set, target_edge = novel_edge_named)
+causal_learning_instance(g, btw_set, target_edge = novel_edge_named)
+```
 
 We simulated 500 networks and compared naive topological selection to topology+data  selection in how they enable recovery of an chosen novel edge.  The simulation uses the following algorithm:
 
@@ -124,6 +196,73 @@ Repeating this algorithm 100 times, I obtained the following distributions of no
 
 ------
 
+```{r}
+library(gridExtra)
+edge_density <- function(g){
+  g2 <- induced.subgraph(g, V(g)[is.random])
+  n <- vcount(g2)
+  max_edge_num <- (n-1) * n / 2
+  ecount(g2) / max_edge_num
+}
+sim_results <- data.frame(edge_density = rep(NA, m),
+                          coverage = rep(NA, m), 
+                          fit_mse = rep(NA, m),
+                          set_length = rep(NA, m),
+                          mse_is_learnable = rep(NA, m),
+                          source_is_in_data = rep(NA, m),
+                          target_is_in_data = rep(NA, m),
+                          mse_strength = rep(NA, m),
+                          mse_direction = rep(NA, m),
+                          btw_strength = rep(NA, m),
+                          btw_direction = rep(NA, m))
+sim_results_list <- list(mse_set = list(),
+                         btw_set = list(),
+                         fit = list())
+pdf("prelim_sim_results.pdf", width = 13)
+m <- 10
+p <- 7
+for(i in 1:m){
+  g <- sim_system(p, 1000)
+  novel_edge <- get_novel_edge(g)  
+  novel_edge_named <- V(g)[get_edge_vertex(g, novel_edge)]$name
+  g_sub <- g - novel_edge
+  g_sub$min.max.constraints <- c(-8, 8)
+  fitted_model <- fit_initialized_sg(g_sub)
+  suggested_sets <- causal_prioritization(fitted_model, k = 2)
+  mse_set <- suggested_sets$mse_set
+  btw_set <- suggested_sets$btw_set
+  novel_edge_vertices <- get_edge_vertex(g, novel_edge)
+  named_novel_edge <- V(g)[novel_edge_vertices]$name 
+  mse_result <- causal_learning_instance(g, mse_set, target_edge = named_novel_edge)
+  btw_result <-  causal_learning_instance(g, btw_set, target_edge = named_novel_edge)
+  #### Collect results
+  sim_results_list$mse_set[[i]] <- mse_set
+  sim_results_list$btw_set[[i]] <- btw_set
+  sim_results_list$fit[[i]] <- fitted_model
+  sim_results$coverage[i] <- (length(V(g)[is.observed])/p) %>% round(3)  
+  sim_results$fit_mse[i] <- getMSE(fitted_model) %>% round(3)
+  sim_results$set_length[i] <- length(mse_set)
+  sim_results$edge_density[i] <- edge_density(g) %>% round(3)
+  sim_results$mse_is_learnable[i] <- all(named_novel_edge %in% mse_set)
+  observed_and_random <- V(g)[setdiff(V(g)[is.observed], V(g)[is.fixed])]$name
+  sim_results$source_is_in_data[i] <- named_novel_edge[1] %in% observed_and_random
+  sim_results$target_is_in_data[i] <- named_novel_edge[2] %in% observed_and_random
+  sim_results$mse_strength[i] <- mse_result$strength %>% as.numeric %>% round(3)
+  sim_results$mse_direction[i] <- mse_result$direction %>% as.numeric %>% round(3)
+  sim_results$btw_strength[i] <- btw_result$strength %>% as.numeric %>% round(3)
+  sim_results$btw_direction[i] <- btw_result$direction %>% as.numeric %>% round(3)
+  #### Plot
+  par(fig=c(0,1,0.15,1))
+  sim_plotter(g, novel_edge, main = i, 
+                          sub = paste("mse set= ", paste(sort(as.numeric(mse_set)), collapse = " "),
+                                      "btw set= ", paste(sort(as.numeric(btw_set)), collapse = " "),
+                                      collapse = "~"))
+  pushViewport(viewport(y=.1))
+  grid.table(sim_results[i, ])
+  popViewport()
+}
+dev.off()
+```
 
 ```{r}
 library(ggplot2)
@@ -131,18 +270,29 @@ sparcity <- c("no null edges", "25% null edges", "50% null edges", "75% null edg
 coverage <- c("no data", "downstream only", "70% of proteins", "100% of proteins")
 naive_scores <- NULL
 proposed_scores <- NULL
-for(i in 1:10000){
-  naive_scores <- c(naive_scores, sample(c(0, rbeta(1, 2, 5)), 1, prob = c(.3, .7)))
-  proposed_scores <- c(proposed_scores, sample(c(0, rbeta(1, 2, 2)), 1, prob = c(.2, .8)))
-}
-sim_data <- function(n, p){
-  rb <- rbeta(n, 2, 5)
-  samp <- sample(rb, floor(p * n))
-  c(samp, rep(0, ceiling((1-p) * n)))[sample(n)]
-}
+# for(i in 1:10000){
+#   naive_scores <- c(naive_scores, sample(c(0, rbeta(1, 2, 5)), 1, prob = c(.3, .7)))
+#   proposed_scores <- c(proposed_scores, sample(c(0, rbeta(1, 2, 2)), 1, prob = c(.2, .8)))
+# }
+# sim_data <- function(n, p){
+#   rb <- rbeta(n, 2, 5)
+#   samp <- sample(rb, floor(p * n))
+#   c(samp, rep(0, ceiling((1-p) * n)))[sample(n)]
+# }
 #naive 0 with probability .4
 #proposed with probaility .2
 m <- 10000
+library(reshape2)
+sim_results2 <- sim_results %>%
+  mutate(mse_score = mse_strength * mse_direction,
+         btw_score = btw_strength * btw_direction) %>%
+  select(edge_density, coverage, mse_score, btw_score) %>% 
+  melt(c("edge_density", "coverage")) %>%
+  rename(method = variable, score = value) %>%
+  mutate(method = ifelse(method == "mse_score", "proposed", "naive"))
+  
+
+
 sim_results <- data.frame(
   approach = c(rep("proposed", m/2), rep("naive", m/2)),
   sparcity = factor(sample(sparcity, m, replace = TRUE), levels = sparcity),
@@ -161,3 +311,7 @@ g_plot <- ggplot(sim_results, aes(x = score)) +
   facet_grid(coverage ~ sparcity)
 plot(g_plot)
 ```
+
+### todo
+* change to simming from layerDAGs
+* 

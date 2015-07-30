@@ -6,9 +6,20 @@
 #' based Markov neighborhood.
 #' @param g a signalgraph
 #' @export
-loadMB <- function(g){
-  for(v in V(g)){
-    V(g)[v]$causal_nbr <- list(imb(g, v)) 
+loadCN <- function(g){
+  g <- name_vertices(g)
+  va <- list.vertex.attributes(g)
+  if("is.root" %in% va){
+    g_no_root <- induced.subgraph(g, V(g)[!is.root])
+    for(v in V(g_no_root)){
+      v_name <- V(g_no_root)[v]$name
+      cn_name <- V(g_no_root)[c(imb(g_no_root, v), v)]$name
+      V(g)[v_name]$causal_nbr <- list(V(g)[cn_name]) 
+    }
+  } else {
+    for(v in V(g)){
+      V(g)[v]$causal_nbr <- list(V(g)[c(imb(g), v)])  
+    }
   }
   g
 }
@@ -96,7 +107,9 @@ initializeWeights <- function(g){
       non_zero_edge_index <- E(g)[sample(E(g), non_zero_count)]
       E(g)[non_zero_edge_index]$weight <- runif(non_zero_count, min = g$min.max.constraints[1], max = g$min.max.constraints[2])
     } else {
-      E(g)$weight <- runif(ecount(g), min = g$min.max.constraints[1], max = g$min.max.constraints[2])
+      E(g)$weight <- rnorm(ecount(g), sd = 3)
+      E(g)$weight[E(g)$weight < g$min.max.constraints[1]] <- g$min.max.constraints[1]
+      E(g)$weight[E(g)$weight > g$min.max.constraints[2]] <- g$min.max.constraints[2]
     }
   }
   g
@@ -114,7 +127,6 @@ initializeWeights <- function(g){
 #'  \item{activation.prime}{The derivative fo the activation function, used in gradient calculation.}
 #'  \item{min.max.constraints}{2 element numeric containing the acceptable range for each rate.}
 #'  }
-#' 
 #' @param g an igraph object not yet initialized as a signal graph
 #' @param graph_attr a list of objects to be used as graph attributes
 #' @param n number of rows in the data
@@ -225,7 +237,7 @@ addBiases <- function(g, fixed){
 #' }
 #'  
 #' This function initializes all these vertex attributes for later updating.
-#' @return g
+#' @return signal graph object
 initializeVertexBooleans <- function(g){
   V(g)$is.bias <- FALSE
   V(g)[grepl('bias', V(g)$name)]$is.bias <- TRUE # grep the biases by name and label them.

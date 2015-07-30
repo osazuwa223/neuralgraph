@@ -80,7 +80,7 @@ long_test <- function(option){
 #' Visualize a signal graph object
 #' 
 #' @export
-sg_viz <- function(g, main = NULL, show_biases = FALSE){
+sg_viz <- function(g, main = NULL, sub = NULL, show_biases = FALSE){
   if(!show_biases)  g <- igraph::induced.subgraph(g, V(g)[!is.bias])
   col <- structure(rep("white", vcount(g)), names = V(g)$name)
   col[V(g)$is.observed] <- "light green"
@@ -92,9 +92,9 @@ sg_viz <- function(g, main = NULL, show_biases = FALSE){
     igraph.to.graphNEL(.) %>% # convert to a graphNEL
     {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
     {graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
-  if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
+  # if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
+  graph::graph.par(list(graph = list(main = main, sub = sub))) # Add a title if one is given
   Rgraphviz::renderGraph(g_out) # Render the graph
-  graph::graph.par(list(graph = list(main = ""))) # Reset graph parameters
 }
 
 #' Convert logistic activation parameters to parameters in u / (1 + u) function
@@ -146,3 +146,5 @@ vertexMSEs <- function(g){
     unlist %>%
     structure(names = V(g)[observed_and_random]$name)
 }
+
+

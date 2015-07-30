@@ -103,7 +103,8 @@ getMSE <- function(g){
   k <- length(V(g)[response_variables])
   observed <- unlist(V(g)[response_variables]$observed)
   prediction <- unlist(V(g)[response_variables]$output.signal)
-  sum((observed - prediction) ^ 2) / g$n / k
+  out <- sum((observed - prediction) ^ 2) / g$n / k
+  out
 }
 
 #' Closure for generating a penalized least squares loss function for use in optimization
@@ -257,13 +258,11 @@ gradientDescent <- function(wts_init, grad, loss, maxit = 100, epsilon = .01){
     step_new <- tryCatch(optimise(ls, c(0, 100))$minimum, # do line search
                          error = function(e) "failed")
     print(step_new)
-    if(step_new == "failed") browser()
     wts_new <- wts - step_new * grad(wts) # get a new weight
     e <- abs(loss(wts) - loss(wts_new)) # Check against the old weight
     if(e < epsilon) little_movement <- little_movement + 1 else little_movement <- 0
     if(little_movement > 10){
       message("little movement")
-      browser() # Return if we already have little movement
     } 
     wts <- wts_new
     step <- step_new

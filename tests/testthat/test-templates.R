@@ -1,9 +1,9 @@
-devtools::load_all("../../R/tools.R")
-devtools::load_all("../../R/templates.R")
+# devtools::load_all("../../R/tools.R")
+# devtools::load_all("../../R/templates.R")
 #devtools::load_all("R/tools.R")
 #devtools::load_all("R/templates.R")
 context("templates for commmonly used signal graph models")
-library(dplyr)
+library(dplyr, quietly = TRUE)
 
 test_that("get_gate with all outputs works as expected", {
   gates <- c("AND", "OR", "NAND", "NOR", "XOR", "XNOR") 
@@ -48,6 +48,44 @@ test_that("get_gate replicates a hand made version", {
   expect_equal(V(g1)$name, V(g2)$name)
 })
 
-test_that("sim_system produces a model that looks like a fitted model", {})
-test_that("the fitted values and the observed values are the same", {})
+test_that("sim_system produces a model that looks like a fitted model", {
+  g <- sim_system(5, 100)
+  g_new <- fit_initialized_sg(g)
+  expect_identical(get_fitted(g), get_fitted(g_new))
+})
 
+test_that("sim_system_data produces data gaussian error with gaussian error", {
+  gauss_error <- function(x, err){
+    x <- x + rnorm(length(x), sd = err)
+    (x - min(x)) / max(x)
+  }
+  expect_true(FALSE)
+})
+
+test_that("sim_system enables control of edge density", {
+  1:10 %>%# number of graphs to generate
+    lapply(sim_system(10, edge_density = .3)) %>%
+    lapply(edge_density) %>%
+    unlist %>%
+    mean %>%
+    expect_equal(.3)
+})
+
+test_that("sim_system enables control of the proportion of edge weights that are 0", {
+  edge_sparcity <- function(g) sum(E(g)weight == 0) / ecount(g)
+  1:10 %>%# number of graphs to generate
+    lapply(sim_system(10, edge_sparcity = .3)) %>%
+    lapply(edge_sparcity) %>%
+    unlist %>%
+    mean %>%
+    expect_equal(.3)
+})
+
+
+test_that("sim_system_data produces data that follows the graph mapping", {
+  set.seed(14)
+  g <- sim_system(10, 100)
+  .data <- sim_system_data(g)
+  wts <- E(g)[to("3")]
+  expect_identical(.data[, "3"] <- .data[, c("1", "8", "9", "10")])
+})
