@@ -209,3 +209,23 @@ get_gate <- function(outputs = "all", layers=NULL){
   }
   name_edges(g) 
 }
+
+#' Simulate a scale-free signal graph structure based on another
+#' 
+#' Takes an input signal graph, fits a power law model, and simulates a new
+#' graph based on the fit.  This function uses the Barabasi-Albert model to 
+#' generate graphs implemented in lucy::power_signal_graph, however an alteration is made.  
+#' The edges of the input graph are reversed before estimating the power law fit, and the 
+#' simulated graph edges are reversed again before it is returned from the function. 
+#' This way, the graph is characterized not by preferential attachment of incoming edges, but
+#' by preferential attachment of outgoing edges.
+#' @param g an igraph object.  
+#' @param n number of desired vertices in the output graph.
+#' @return A new graph simulated from a power law based on g.
+#' @export 
+power_signal_graph <- function(g, n){
+  g %>%
+    reverse_edges %>%
+    power_law_sim(n) %>%
+    reverse_edges
+}

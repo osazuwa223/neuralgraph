@@ -79,22 +79,33 @@ long_test <- function(option){
 
 #' Visualize a signal graph object
 #' 
+#' Fixed nodes are displayed as orange.  Of the two kinds of random nodes, 
+#' observed nodes are displayed in green, hidden nodes are displayed in blue.
+#' For random observed nodes, the width of node borders corresponds to error.
+#' 
 #' @export
 sg_viz <- function(g, main = NULL, sub = NULL, show_biases = FALSE){
   if(!show_biases)  g <- igraph::induced.subgraph(g, V(g)[!is.bias])
-  col <- structure(rep("white", vcount(g)), names = V(g)$name)
-  col[V(g)$is.observed] <- "light green"
-  col[V(g)$is.root] <- "dark orange"
-  col[V(g)$is.hidden] <- "blue"
-  if("is.bias" %in% list.vertex.attributes(g)) col[V(g)$is.bias] <- "grey"
-  node_list <- list(fill = col) 
+  fill <- structure(rep("white", vcount(g)), names = V(g)$name)
+  fill[V(g)$is.observed] <- "light green"
+  fill[V(g)$is.root] <- "dark orange"
+  fill[V(g)$is.hidden] <- "blue"
+  if("is.bias" %in% list.vertex.attributes(g)) fill[V(g)$is.bias] <- "grey"
+  col <- structure(rep("black", vcount(g)), names = V(g)$name)
+  observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
+  col[observed_and_random] <- "dark red"
+  lwd <- structure(rep(1, vcount(g)), names = V(g)$name)
+  mses <- vertexMSEs(g) 
+  lwd_vals <- 8 * (mses / max(mses))^3 + 1
+  lwd[observed_and_random] <- lwd_vals
+  node_list <- list(fill = fill, col = col, lwd = lwd) 
   g_out <- g %>% name_vertices %>% # Give vertices names if they do not have nay 
     igraph.to.graphNEL(.) %>% # convert to a graphNEL
     {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
     {graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
-  # if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
-  graph::graph.par(list(graph = list(main = main, sub = sub))) # Add a title if one is given
-  Rgraphviz::renderGraph(g_out) # Render the graph
+# if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
+graph::graph.par(list(graph = list(main = main, sub = sub))) # Add a title if one is given
+Rgraphviz::renderGraph(g_out) # Render the graph
 }
 
 #' Convert logistic activation parameters to parameters in u / (1 + u) function
