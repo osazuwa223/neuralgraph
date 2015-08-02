@@ -4,12 +4,12 @@
 \alias{power_signal_graph}
 \title{Simulate a scale-free signal graph structure based on another}
 \usage{
-power_signal_graph(g, n)
+power_signal_graph(g, p)
 }
 \arguments{
 \item{g}{an igraph object.}
 
-\item{n}{number of desired vertices in the output graph.}
+\item{p}{number of desired vertices in the output graph.}
 }
 \value{
 A new graph simulated from a power law based on g.

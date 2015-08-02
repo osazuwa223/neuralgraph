@@ -103,9 +103,9 @@ sg_viz <- function(g, main = NULL, sub = NULL, show_biases = FALSE){
     igraph.to.graphNEL(.) %>% # convert to a graphNEL
     {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
     {graph::`nodeRenderInfo<-`(., node_list)} # add the node annotation
-# if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
-graph::graph.par(list(graph = list(main = main, sub = sub))) # Add a title if one is given
-Rgraphviz::renderGraph(g_out) # Render the graph
+  # if(!is.null(main)) graph::graph.par(list(graph = list(main = main))) # Add a title if one is given
+  graph::graph.par(list(graph = list(main = main, sub = sub))) # Add a title if one is given
+  Rgraphviz::renderGraph(g_out) # Render the graph
 }
 
 #' Convert logistic activation parameters to parameters in u / (1 + u) function

@@ -7,6 +7,8 @@
 sg_viz(g, main = NULL, sub = NULL, show_biases = FALSE)
 }
 \description{
-Visualize a signal graph object
+Fixed nodes are displayed as orange.  Of the two kinds of random nodes,
+observed nodes are displayed in green, hidden nodes are displayed in blue.
+For random observed nodes, the width of node borders corresponds to error.
 }
 

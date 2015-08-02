@@ -89,3 +89,30 @@ test_that("sim_system_data produces data that follows the graph mapping", {
   wts <- E(g)[to("3")]
   expect_identical(.data[, "3"] <- .data[, c("1", "8", "9", "10")])
 })
+
+source_gist("https://gist.github.com/robertness/ecb79071301924f43d09")
+mapk_g <- g
+test_that("power_signal_graph works on the mapk network", {
+    #Code for grabbing MapK phosphorylations from KEGG
+    g <- power_signal_graph(mapk_g, 25)
+    V(g)[igraph::degree(g) == 0] %>%
+      length %>%
+      expect_equal(0)
+})
+
+expect_not_too_ungaussian <- function(x){
+  x <- (x - mean(x)) / sd(x)
+  test <- ks.test(x, pnorm)
+  expect_true(test$p.value > .2)
+}
+
+test_that("sim_system_from_graph produces a graph that can sim data", {
+  g <- sim_system_from_graph(mapk_g, 25, 100, error_sd = .2)
+  expect_identical(vcount(g), 25)
+  observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
+  lapply(V(g)[observed_and_random], function(v){
+    err <- unlist(V(g)[v]$output.signal) - unlist(V(g)[v]$observed) 
+    expect_true(sum(err) != 0) # There should be some error 
+    expect_not_too_ungaussian(err)
+  })
+})

@@ -81,25 +81,34 @@ novel_edge
 ```
 
 ```{r, echo=FALSE}
-sim_plotter <- function(g, novel_edge, main = NULL, sub = NULL){
-  col <- structure(rep("white", vcount(g)), names = V(g)$name)
-  col[V(g)$is.observed] <- "light green"
-  col[V(g)$is.root] <- "dark orange"
-  col[V(g)$is.hidden] <- "blue"
-  node_list <- list(fill = col)
+sim_plotter <- function(g, main = NULL, sub = NULL, show_biases = FALSE){
+  if(!show_biases)  g <- igraph::induced.subgraph(g, V(g)[!is.bias])
+  fill <- structure(rep("white", vcount(g)), names = V(g)$name)
+  fill[V(g)$is.observed] <- "light green"
+  fill[V(g)$is.root] <- "dark orange"
+  fill[V(g)$is.hidden] <- "blue"
+  if("is.bias" %in% list.vertex.attributes(g)) fill[V(g)$is.bias] <- "grey"
+  col <- structure(rep("black", vcount(g)), names = V(g)$name)
+  observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
+  col[observed_and_random] <- "dark red"
+  lwd <- structure(rep(1, vcount(g)), names = V(g)$name)
+  mses <- vertexMSEs(g) 
+  lwd_vals <- 8 * (mses / max(mses))^3 + 1
+  lwd[observed_and_random] <- lwd_vals
+  node_list <- list(fill = fill, col = col, lwd = lwd)
   edge_list <- novel_edge %>%
     {get_edge_vertex(g, .)} %>%
     {V(g)[.]$name} %>%
     paste0(collapse="~") %>%
     {structure(rep("green", length(.)), names = .)} %>%
     list(col = .)
-  g_out <- induced.subgraph(g, V(g)[!is.bias])  %>%
-    igraph.to.graphNEL %>% # convert to a graphNEL
+  g_out <- g %>% name_vertices %>% # Give vertices names if they do not have nay 
+    igraph.to.graphNEL(.) %>% # convert to a graphNEL
     {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
-    {graph::`nodeRenderInfo<-`(., node_list)} %>% 
-    {graph::`edgeRenderInfo<-`(., edge_list)} 
-  graph::graph.par(list(graph = list(main = main, sub = sub)))
-  Rgraphviz::renderGraph(g_out)
+    {graph::`nodeRenderInfo<-`(., node_list)} %>%# add the node annotation
+    {graph::`edgeRenderInfo<-`(., edge_list)}
+  graph::graph.par(list(graph = list(main = main, sub = sub))) # Add a title if one is given
+  Rgraphviz::renderGraph(g_out) # Render the graph
 }
 
 sim_plotter(g, novel_edge)
