@@ -33,7 +33,7 @@ calculateVals <- function(g, v){
 #' @param g a signalgraph object.
 #' @return a signal graph object with updated values for the signal attributes.
 update_signals <- function(g){
-  update_vertices(g, getDeterminers = lucy::iparents, callback = calculateVals)
+  update_vertices(g, get_determiners = lucy::iparents, callback = calculateVals)
 }
 
 #' Update the weight at each edge in a signalgraph object
@@ -43,7 +43,7 @@ update_signals <- function(g){
 #' @param g a signalgraph object.
 #' @return a signalgraph object with updated weights.
 update_weights <- function(g){
-  update_edges(g, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
+  update_edges(g, get_determiners = getDependentEdges, callback = fitWeightsForEdgeTarget)
 }
 
 #' Find edges that affect an edge's optimization

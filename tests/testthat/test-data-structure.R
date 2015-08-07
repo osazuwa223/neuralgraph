@@ -321,7 +321,7 @@ test_that("after the weights of a given vertex has changed, the prediction shoul
 test_that("after a pass at fitting, all edges have been traversed.", {
   long_test(option)
   g1 <- get_gate("AND", c(3, 2))
-  g2 <- update_edges(g1, getDeterminers = getDependentEdges, callback = fitWeightsForEdgeTarget)
+  g2 <- update_edges(g1, get_determiners = getDependentEdges, callback = fitWeightsForEdgeTarget)
   # We know an edge is traversed when fitWeightsForEdgeTarget sets 'updated' attribute to 'TRUE'.
   c(!E(g1)$updated,  # All edges should initially be unupdated
     E(g2)$updated) %>% # All edges should finally be updated

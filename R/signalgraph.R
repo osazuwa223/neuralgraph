@@ -40,3 +40,20 @@ NULL
 #' @usage data(transformations)
 #' @format A data frame with 12 variables and 5 rows
 NULL
+
+#' KEGG MAPK Signaling Pathway Phosphorylation Network
+#' 
+#' A network of all the phosphorylation edges pulled from the MAPK Signaling Pathway on KEGG.
+#' Edges from the human map ("hsa") are pulled.
+#' \url{http://www.kegg.jp/kegg-bin/show_pathway?map=hsa04010&show_description=show}
+#' 
+#' The script for generating the graph is available here:
+#' \url{https://gist.github.com/robertness/ecb79071301924f43d09}
+#' 
+#' @docType data
+#' @keywords datasets
+#' @name mapk_g
+#' @usage data(mapk_g)
+#' @format An igraph object with 60 vertices and 76 edges.  Vertex attributes include "label"
+#' ("MAP4K4", "PLA2G4B", "STMN1"...) and "kid" for KEGG ids ("hsa:9448", "hsa:100137049", "hsa:3925",...) 
+NULL

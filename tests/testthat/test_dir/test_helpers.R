@@ -8,3 +8,8 @@ receives_input <- function(v_set, g) {
     lapply(function(array) sum(is.na(array)) == 0) %>% 
     unlist
 }
+is_not_too_ungaussian <- function(x){
+  x <- (x - mean(x)) / sd(x)
+  test <- ks.test(x, pnorm)
+  expect_true(test$p.value > .2)
+}

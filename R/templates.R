@@ -65,37 +65,6 @@ donate_edges <- function(g){
     ensure_that(is.simple(.))
 }
 
-#' Sim data given a graph
-#' 
-#' For simulation and testing purposes.
-#' Given an igraph object, simulates data on the graph that would 
-#' be representative of the data expected when fitting a signal graph in
-#' the wild.
-#' @param g an igraph object
-#' @param n the number of desired observations in the data
-#' @return a data frame.
-#' @export
-sim_data_on_graph <- function(g, n){  
-  roots <- V(g)[get_roots(g)]$name 
-  leaves <- V(g)[get_leaves(g)]$name
-  num_roots_leaves <- length(c(roots, leaves))
-  k <- sample(num_roots_leaves:(vcount(g)), 1) # Number of observed nodes
-  .data <- c(lapply(roots, function(root) runif(n)), 
-             lapply(leaves, function(leaf) runif(n))) %>%
-    as.data.frame %>%
-    `names<-`(c(roots, leaves))
-  if(k > num_roots_leaves){
-    observed_middle_nodes <- setdiff(V(g)$name, c(leaves, roots)) %>% 
-      sample(k - num_roots_leaves)
-    .data <- lapply(observed_middle_nodes, FUN = function(item) runif(n)) %>%
-      as.data.frame %>%
-      `names<-`(observed_middle_nodes) %>%
-      cbind(.data)
-  } 
-  .data
-}
-
-
 #' Test Case: Random graph and matching data
 #' 
 #' Generates an igraph object and a corresponding dataset.  A number of unobserved vertices will 
@@ -103,8 +72,7 @@ sim_data_on_graph <- function(g, n){
 #' the new structure is simulated using a power law.  Otherwise, the function uses the sim_DAG in 
 #' the lucy \url{https://github.com/robertness/lucy} package.
 #' 
-#' 
-#' @param m the number of desired nodes
+#' @param p the number of desired nodes
 #' @param n the number of desired rows in the data
 #' @param input_g an igraph object.  If supplied then the graph is simulated from
 #' a power law fit on this input graph. 
@@ -114,14 +82,28 @@ sim_data_on_graph <- function(g, n){
 #' @seealso power_signal_graph
 #' @seealso sim_DAG
 #' @export
-rand_case <- function(m, p = m * m + m, input_g = NULL, method = "ordered"){
+rand_case <- function(p, n = p * p + p, input_g = NULL, method = "ordered"){
   if(is.null(input_g)){
     g <- lucy::sim_DAG(p, method = method)
   } else {
     g <- power_signal_graph(input_g, p)
   }
-  g <-  name_vertices(g)
-  .data <- sim_data_on_graph(g, n)
+  # Generation of data matching the graph
+  roots <- V(g)[get_roots(g)]$name 
+  leaves <- V(g)[get_leaves(g)]$name
+  num_roots_leaves <- length(c(roots, leaves))
+  k <- sample(num_roots_leaves:p, 1) # Number of observed nodes
+  .data <- c(lapply(roots, function(root) runif(n)), 
+            lapply(leaves, function(leaf) runif(n))) %>%
+    as.data.frame %>%
+    `names<-`(c(roots, leaves))
+  if(k > num_roots_leaves){
+    observed_middle_nodes <- setdiff(V(g)$name, c(leaves, roots)) %>% 
+      sample(k - num_roots_leaves)
+    .data <- lapply(observed_middle_nodes, FUN = function(item) runif(n)) %>%
+      as.data.frame %>%
+      `names<-`(observed_middle_nodes) 
+  } 
   list(g = g, data = .data)
 }
 
@@ -162,7 +144,7 @@ random_unfit_sg <- function(p, n = p * p + p, input_g = NULL, method = "ordered"
 #' The vertices that must have data are the roots and the leaves, (everything in between can be hidden),
 #' so data is simulated for only those nodes.
 #' 
-#' @param m the number of desired nodes
+#' @param p the number of desired nodes
 #' @param n the number of desired rows in the data
 #' @param ... additional arguments, including graph attributes
 #' @param input_g an igraph object.  If supplied then the graph is simulated from
@@ -192,42 +174,39 @@ random_sg <- function(p, n, max.iter = 1, input_g = NULL, method = "ordered", no
 #' fit on the simulated data, and the parameters of the standard and learned parameters of the new model
 #' can be compared.
 #' 
-#' @param m the number of desired nodes
+#' @param p the number of desired nodes
 #' @param n the number of desired rows in the data
 #' @param input_g an igraph object.  If supplied then the graph is simulated from
 #' a power law fit on this input graph. 
 #' @param method the fitting method for simulating a directed acyclic graph.  Ignored
 #' if input_g is supplied. 
-#' @param error_sd desired standard deviation for Gaussian error of logit(x)
 #' @param ... arguments past to fitNetwork, including graph attributes
 #' @return a signalgraph object
 #' @seealso power_signal_graph
 #' @seealso sim_DAG
 #' @seealso rand_case
 #' @export
-sim_system <- function(p, n, input_g = NULL, method = "ordered", error_sd = .2, ...){
-  if(is.null(input_g)){
-    case <- rand_case(p, n, method = "method")
-  } else {
+sim_system <- function(p, n, input_g = NULL, method = "ordered", ...){
+  if(is.null(input_g)){ 
+    case <- rand_case(p, n, method = method)
+  } else { 
     case <- rand_case(p, n, input_g = input_g)
   }
-  case$g %>%
+  g <- case %>% 
     {initializeGraph(.$g, .$data, fixed = get_roots(.$g), ...)} %>%
     loadCN
   fitted_vals <- get_fitted(g)
-  logit <- function(x) log(x / (1+x))
   for(node in names(fitted_vals)){ 
     if(V(g)[node]$is.observed){
-      observed_val <- fitted_vals[, node] %>%
-        logit %>%
-        {1 / (1 + exp(-1 * (. + rnorm(n, sd = error_sd))))}
+      observed_val <- fitted_vals[, node]
       V(g)[node]$observed <- list(observed_val)
     } 
   }
   g
 }
 
-#' Simulate data from a signal graph
+
+#' Regenerate the data values in a signal graph
 #' 
 #' Simulates new data for all the fixed variables and propagates those changes
 #' through the rest of the system.
@@ -236,7 +215,7 @@ sim_system <- function(p, n, input_g = NULL, method = "ordered", error_sd = .2, 
 #' @param add_error if true, adds noise to each column in output dataframe using the jitter function.
 #' @return a dataframe of data
 #' @export
-sim_system_data <- function(g, n, add_error = FALSE){
+regenerate_graph_data <- function(g, n){
   prediction_graph <- resetUpdateAttributes(g)
   fixed_v <- V(prediction_graph)[is.fixed]
   # First sim new values for the output signal
@@ -251,6 +230,23 @@ sim_system_data <- function(g, n, add_error = FALSE){
     .data <- lapply(.data, jitter) %>%
       as.data.frame %>%
       `names<-`(names(.data))
+  }
+  .data
+}
+
+#' Add Gaussian error
+#' 
+#' In the creation of a data frame from a simulated system, 
+#' this adds Gaussian error to the variables of a table and rescales them 
+#' to between 0 and 1.
+#' @param .data a data frame
+#' @param vars names or indices of the data.frame to add the error. 
+#' @param noise the desired amount of standard error in the noise to add to the variables.
+#' Note that after noise is added the var is rescaled to 0 and 1.
+add_gauss_error <- function(.data, vars, noise){
+  for(v in vars){
+    .data[, v] <- .data[, v] + rnorm(nrow(.data), sd = noise) %>%
+      {(. - min(.)/(max(.) - min(.)))}
   }
   .data
 }

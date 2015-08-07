@@ -4,25 +4,34 @@
 \alias{random_unfit_sg}
 \title{Generate a random unfit signalgraph object}
 \usage{
-random_unfit_sg(m, n = m * m + m, no_fixed_prob = 0.3, ...)
+random_unfit_sg(p, n = p * p + p, input_g = NULL, method = "ordered",
+  no_fixed_prob = 0.3, ...)
 }
 \arguments{
-\item{m}{the number of desired nodes}
+\item{p}{the number of desired nodes}
 
 \item{n}{the number of desired rows in the data}
 
+\item{input_g}{an igraph object.  If supplied then the graph is simulated from
+a power law fit on this input graph.}
+
+\item{method}{the fitting method for simulating a directed acyclic graph.  Ignored
+if input_g is supplied.}
+
 \item{no_fixed_prob}{probability of generating a case with no fixed variable nodes}
-
-\item{num_fixed}{the number of vertices treated as fixed variables.}
-
-\item{no_fixed}{boolean if TRUE then all vertices are treated as random. Defaults to FALSE}
 }
 \value{
 an initialized, but unfit (unoptimized) signal graph model
 }
 \description{
-Uses the sim_DAG in the lucy \url{https://github.com/osazuwa223/lucy} package.
 Since the vertices that must have data are the roots and the leaves, (everything in between can be hidden),
 then a data frame is simulated for only those nodes.
+}
+\seealso{
+power_signal_graph
+
+sim_DAG
+
+rand_case
 }
 
