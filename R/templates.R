@@ -193,6 +193,20 @@ sim_system <- function(p, n, input_g = NULL, method = "ordered", ...){
   g
 }
 
+#' Generate data from a simulated signal graph
+#' Pull data frame from a simulated signal graph and add error to simulate realistic data.
+#' @param g the output of sim_system
+#' @param factor numeric quantifying the amount of error to add to each random element in the 
+#' data frame (see factor argument in base function 'jitter').
+#' @return a data frame that can be used as data from the simulated system.
+#' @export
+sim_data_from_system <- function(g, factor){
+  observed_random <- intersect(V(g)[is.observed], V(g)[is.random])
+  recover_design(g) %>%
+    add_error(V(g)[observed_random]$name, factor = 1000)
+}
+
+#' 
 #' Regenerate the data values in a signal graph
 #' 
 #' Simulates new data for all the fixed variables and propagates those changes

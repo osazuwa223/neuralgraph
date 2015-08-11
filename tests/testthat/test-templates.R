@@ -71,7 +71,7 @@ test_that("we can add Gaussian error to get realistic data.", {
   observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
   unrandom_data <- recover_design(g) 
   random_data <- unrandom_data %>%
-    add_error(V(g)[observed_and_random], 1000)
+    add_error(V(g)[observed_and_random]$name, 1000)
   for(v in names(unrandom_data)){
     if(v %in% fixed$name){
       expect_equal(rep(0, nrow(unrandom_data)), abs(unrandom_data[,v] - random_data[, v]))
@@ -79,38 +79,32 @@ test_that("we can add Gaussian error to get realistic data.", {
       expect_true(mean(unrandom_data[,v] - random_data[, v]) != 0)
     }
   }  
-  x <- seq(from = 0, to = 1, by = .0001) %>% # Typically we scale to {0, 1}. Suppose {0, 1} were the original scale
-    {. + rnorm(length(.), .2)} %>% # Then this is adding Gaussian error on the original scale
-    {(. - min(.))/(max(.) - min(.))}  # An this is the scaling step.
-  # The simulations add error in this way.
-  # The error can still be seen as Gaussian if the {0, 1} bounds are not viewed as proper
-  # bounds but just the consequence of a linear transformation that enables model fitting.
-  expect_equal(.2, add_gauss_error(x, .2), tolerance = 0.02)
 })
 
 test_that("we can simulate a dataset with error", {
   # Data simulation pulls the fitted values, adds error, and returns the observed values. 
-  list(g1 = sim_system(10, 1000), 
-       g2 = sim_system(10, 1000, mapk_g)) %>%
+  list(g1 = sim_system(10, 50), 
+       g2 = sim_system(10, 50, mapk_g)) %>%
     lapply(function(g){
-      fixed <- V(g)[is.fixed]
       observed_random <- intersect(V(g)[is.observed], V(g)[is.random])
-      sim_data <- sim_data_from_graph(g, gauss, gauss_sd = .2)
+      set.seed(1)
+      sim_data <- sim_data_from_system(g, 1000)
       expect_true(all(names(sim_data) %in% V(g)[is.observed]$name))
-      test_data <- g %>%
-        recover_design %$% 
-        observed_random %>%        
-        add_error(500)
-      expect_equal(mean(sim_data[, observed_random][, 1]), mean(test_data[, 1]))
+      set.seed(1)
+      test_data <- recover_design(g) %>%
+        add_error(V(g)[observed_random]$name, factor = 1000)
+      expect_identical(sim_data, test_data)
     })
 })
 
 test_that("sim_system enables control of the proportion of edge weights that are 0", {
-  edge_sparcity <- function(g) sum(E(g)$weight == 0) / ecount(g)
-  1:100 %>%# number of graphs to generate
-    lapply(sim_system(10, edge_sparcity = .3)) %>%
+  skip("skipped")
+  edge_sparcity <- function(g) ecount(g) /(vcount(g) * vcount(g) - 1) 
+  1:50 %>%# number of graphs to generate
+    lapply(function(i) sim_system(vcount(mapk_g), n = 10, input_g = mapk_g)) %>%
+    lapply(function(item) induced_subgraph(item, V(item)[!is.bias])) %>%
     lapply(edge_sparcity) %>%
     unlist %>%
     mean %>%
-    expect_equal(.3, tolerance = .05)
+    expect_equal(edge_sparcity(mapk_g), tolerance = .1)
 })
