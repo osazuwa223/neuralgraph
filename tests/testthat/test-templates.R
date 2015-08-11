@@ -3,7 +3,6 @@ context("templates for commmonly used signal graph models")
 library(dplyr, quietly = TRUE)
 source("test_dir/test_helpers.R")
 
-
 test_that("get_gate with all outputs works as expected", {
   gates <- c("AND", "OR", "NAND", "NOR", "XOR", "XNOR") 
   g <- get_gate(layers = c(2, 3))
@@ -23,7 +22,7 @@ test_that("get_gate with partial outputs works as expected", {
 })
 
 test_that("get_gate produces the expected outputs on 2 input system", {  
-  # THis is what the output data frame should look like
+  # This is what the output data frame should look like
   logic_gates <- expand.grid(list(I1 = c(0, 1), I2 = c(0, 1))) %>% 
     {dplyr::mutate(., AND = (I1 * I2 == 1) * 1, #dplyr has to be prefixed here for the code to work for some reason.
            OR = (I1 + I2 > 0) * 1 ,
@@ -67,21 +66,19 @@ test_that("sim_system produces observed values that are the same as the
           })
 
 test_that("we can add Gaussian error to get realistic data.", {
+  g <- sim_system(10, 100)
   fixed <- V(g)[is.fixed]
   observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
-  unrandom_data <- sim_system(10, 100) %>%
-    recover_design 
+  unrandom_data <- recover_design(g) 
   random_data <- unrandom_data %>%
-    add_gauss_error(V(g)[observed_and_random])
+    add_error(V(g)[observed_and_random], 1000)
   for(v in names(unrandom_data)){
     if(v %in% fixed$name){
       expect_equal(rep(0, nrow(unrandom_data)), abs(unrandom_data[,v] - random_data[, v]))
     }else{
-      expect_true(its_not_too_ungaussian(abs(unrandom_data[,v] - random_data[, v])))
+      expect_true(mean(unrandom_data[,v] - random_data[, v]) != 0)
     }
-  }
-  
-  
+  }  
   x <- seq(from = 0, to = 1, by = .0001) %>% # Typically we scale to {0, 1}. Suppose {0, 1} were the original scale
     {. + rnorm(length(.), .2)} %>% # Then this is adding Gaussian error on the original scale
     {(. - min(.))/(max(.) - min(.))}  # An this is the scaling step.
@@ -103,7 +100,7 @@ test_that("we can simulate a dataset with error", {
       test_data <- g %>%
         recover_design %$% 
         observed_random %>%        
-        add_gauss_error(.2)
+        add_error(500)
       expect_equal(mean(sim_data[, observed_random][, 1]), mean(test_data[, 1]))
     })
 })

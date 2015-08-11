@@ -10,8 +10,6 @@ regenerate_graph_data(g, n)
 \item{g}{a signal graph object}
 
 \item{n}{desired number of rows in output dataframe}
-
-\item{add_error}{if true, adds noise to each column in output dataframe using the jitter function.}
 }
 \value{
 a dataframe of data
