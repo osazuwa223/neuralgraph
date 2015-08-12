@@ -1,10 +1,3 @@
-#' The logistic function
-#' 
-#' @export
-logistic <- function(z) 1 / (1 + exp(-z))
-#' @rdname logistic
-#' @export 
-logistic_prime <- function(z) logistic(z) * (1 - logistic(z))
 
 #' A Simple Matrix Multiplication to Calculate Linear Inputs
 getLinearCombination <- function(wts, model.mat) as.numeric(model.mat %*% wts)
@@ -64,6 +57,42 @@ doChainRule <- function(g, v, e){
     )
   }
   output
+  }
+
+#' Gradient descent on weights
+#' 
+#' @param initial weight values
+#' @param loss function that takes a weight vector as an input and returns a single value
+#' @param gradient function that takes weight vector as an input are returns a gradient vector of the same length
+#' @param step step size
+#' @param maxit maximum number of iterations
+#' @param epsilon stop when change in loss output is less than epsilon 10 iterations in a row.
+gradientDescent <- function(wts_init, grad, loss, maxit = 100, epsilon = .01){
+  i <- 0
+  little_movement <- 0
+  wts <- wts_init
+  step <- .001
+  ls_maker <- function(wts, gr) Vectorize(function(step) loss(wts - gr * step)) # a closure for doing line search
+  while(i < maxit){
+    print(i)
+    paste("wts=", paste(round(wts, 3), collapse=" ")) %>% print
+    gr <- grad(wts) # get gradient
+    paste("gr=", paste(round(gr, 3), collapse=" ")) %>% print
+    ls <- ls_maker(wts, gr) # get line search function
+    step_new <- tryCatch(optimise(ls, c(0, 100))$minimum, # do line search
+                         error = function(e) "failed")
+    print(step_new)
+    wts_new <- wts - step_new * grad(wts) # get a new weight
+    e <- abs(loss(wts) - loss(wts_new)) # Check against the old weight
+    if(e < epsilon) little_movement <- little_movement + 1 else little_movement <- 0
+    if(little_movement > 10){
+      message("little movement")
+    } 
+    wts <- wts_new
+    step <- step_new
+    i <- i + 1
+  }
+  wts
 }
 
 #' Get a new graph used for prediction
@@ -224,10 +253,13 @@ fitWeightsForNode <- function(g, v){
 #' @param e an index for the edge in the signalgraph object
 #' @return an updated signalgraph object
 #' @seealso fitWeightsForNode
-fitWeightsForEdgeTarget <- function(g, e){
+fit_weights_for_edge_target <- function(g, e){
+  e <- as.numeric(e)
   old_weight <- E(g)[e]$weight
   edge.target <- igraph::get.edgelist(g)[e, 2]
-  message("Fitting for edge ", E(g)[e]$name)
+  message("Fitting for edge ", 
+          paste(V(g)[get_edge_vertex(g, E(g)[e])]$name, 
+                collapse = "->"))
   g <- fitWeightsForNode(g, edge.target)
   new_weight <- E(g)[e]$weight
   message(E(g)[e]$name, ': Old weight = ', round(old_weight, 4), ', New Weight = ', round(new_weight, 4))
@@ -235,38 +267,10 @@ fitWeightsForEdgeTarget <- function(g, e){
   g
 }
 
-#' Gradient descent on weights
+#' The logistic function
 #' 
-#' @param initial weight values
-#' @param loss function that takes a weight vector as an input and returns a single value
-#' @param gradient function that takes weight vector as an input are returns a gradient vector of the same length
-#' @param step step size
-#' @param maxit maximum number of iterations
-#' @param epsilon stop when change in loss output is less than epsilon 10 iterations in a row.
-gradientDescent <- function(wts_init, grad, loss, maxit = 100, epsilon = .01){
-  i <- 0
-  little_movement <- 0
-  wts <- wts_init
-  step <- .001
-  ls_maker <- function(wts, gr) Vectorize(function(step) loss(wts - gr * step)) # a closure for doing line search
-  while(i < maxit){
-    print(i)
-    paste("wts=", paste(round(wts, 3), collapse=" ")) %>% print
-    gr <- grad(wts) # get gradient
-    paste("gr=", paste(round(gr, 3), collapse=" ")) %>% print
-    ls <- ls_maker(wts, gr) # get line search function
-    step_new <- tryCatch(optimise(ls, c(0, 100))$minimum, # do line search
-                         error = function(e) "failed")
-    print(step_new)
-    wts_new <- wts - step_new * grad(wts) # get a new weight
-    e <- abs(loss(wts) - loss(wts_new)) # Check against the old weight
-    if(e < epsilon) little_movement <- little_movement + 1 else little_movement <- 0
-    if(little_movement > 10){
-      message("little movement")
-    } 
-    wts <- wts_new
-    step <- step_new
-    i <- i + 1
-  }
-  wts
-}
+#' @export
+logistic <- function(z) 1 / (1 + exp(-z))
+#' @rdname logistic
+#' @export 
+logistic_prime <- function(z) logistic(z) * (1 - logistic(z))

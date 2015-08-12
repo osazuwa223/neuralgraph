@@ -213,6 +213,7 @@ edge_density <- function(g){
   max_edge_num <- (n-1) * n / 2
   ecount(g2) / max_edge_num
 }
+m <- 10
 sim_results <- data.frame(edge_density = rep(NA, m),
                           coverage = rep(NA, m), 
                           fit_mse = rep(NA, m),
@@ -228,14 +229,15 @@ sim_results_list <- list(mse_set = list(),
                          btw_set = list(),
                          fit = list())
 pdf("prelim_sim_results.pdf", width = 13)
-m <- 10
 p <- 7
+data(mapk_g)
 for(i in 1:m){
-  g <- sim_system(p, 1000)
+  g <- sim_system(p, 100, input_g = mapk_g)
   novel_edge <- get_novel_edge(g)  
   novel_edge_named <- V(g)[get_edge_vertex(g, novel_edge)]$name
   g_sub <- g - novel_edge
   g_sub$min.max.constraints <- c(-8, 8)
+  igraphviz(g)
   fitted_model <- fit_initialized_sg(g_sub)
   suggested_sets <- causal_prioritization(fitted_model, k = 2)
   mse_set <- suggested_sets$mse_set

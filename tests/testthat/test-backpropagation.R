@@ -1,32 +1,5 @@
-# Testing optimization methods that use a specified gradient.
+context("Backpropagation")
 
-# Note May 10, 2015.  The gradient tests are currently failing.  I believe the gradient calculation is erroneous, though 
-# I am not sure where
-
-# devtools::load_all("../../R/optimization.R")
-# devtools::load_all("../../R/tools.R")
-#devtools::load_all("R/optimization.R")
-#devtools::load_all("R/tools.R")
-library(plyr, quietly = TRUE)
-library(dplyr, quietly = TRUE)
-context("Optimization with specified gradient")
-
-test_that("logistic_prime basic function is working as expected", {
-  f <- function(z) exp(-z)/(1+exp(-z))^2
-  z <- runif(100) 
-  expect_equal(f(z), logistic_prime(z))
-  expect_equal(logistic(4) - logistic(-4), integrate(Vectorize(logistic_prime), -4, 4)$value)
-})
-
-test_that("hand calculation of gradient in error free case of logistic regression reproduces gradient calculation", {  
-})
-
-test_that("hand calculation of gradient in case of logistic regression with errors reproduces gradient calculation", {  
-})
-
-
-
-# Testing using Titanic3 data
 data(titanic3)
 titan <- dplyr::filter(titanic3, !is.na(age), !is.na(survived), !is.na(fare)) %>% #Not worrying about NA vals
   {dplyr::mutate(., survived = as.numeric(survived))} %>%

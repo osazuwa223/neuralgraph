@@ -91,7 +91,6 @@ rand_case <- function(p, n = p * p + p, input_g = NULL, method = "ordered"){
       `names<-`(observed_middle_nodes) %>%
       cbind(.data)
   }
-  fixed = V(g)[get_roots(g)]$name
   list(g = g, data = .data)
 }
 
@@ -114,7 +113,7 @@ rand_case <- function(p, n = p * p + p, input_g = NULL, method = "ordered"){
 #' @export
 random_unfit_sg <- function(p, n = p * p + p, input_g = NULL, method = "ordered", no_fixed_prob = .3, ...){
   if(is.null(input_g)){
-    case <- rand_case(p, n, method = "method")
+    case <- rand_case(p, n, method = method)
   } else {
     case <- rand_case(p, n, input_g = input_g)
   }

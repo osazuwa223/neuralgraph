@@ -1,3 +1,7 @@
+#' Get deviance
+#' 
+#' Deviance is defined as residual sum squares on all the output variables and their predictions
+#' 
 #' Calculate the signal propagation in the signalgraph model
 #' 
 #' For a given vertex, the values for the vertex attribute 'input.signal' are calculated as the linear 
@@ -43,7 +47,7 @@ update_signals <- function(g){
 #' @param g a signalgraph object.
 #' @return a signalgraph object with updated weights.
 update_weights <- function(g){
-  update_edges(g, get_determiners = getDependentEdges, callback = fitWeightsForEdgeTarget)
+  update_edges(g, get_determiners = get_dependent_edges, callback = fit_weights_for_edge_target)
 }
 
 #' Find edges that affect an edge's optimization
@@ -56,7 +60,7 @@ update_weights <- function(g){
 #' @param g a signalgraph object
 #' @param e an edge index in the signal graph
 #' @return set of edge indices 
-getDependentEdges <- function(g, e){
+get_dependent_edges <- function(g, e){
   # Find the target vertex of e
   trg_vertex <- V(g)[get.edgelist(g)[e, 2]]
   # Find observed nodes that are downstream of the target vertex 
@@ -125,4 +129,7 @@ fitNetwork <- function(g, data, fixed = NULL, graph_attr = list(L2_pen = .01), e
     initializeGraph(data, fixed, graph_attr) %>%
     fit_initialized_sg(epsilon, max.iter)
 }
+
+
+
 

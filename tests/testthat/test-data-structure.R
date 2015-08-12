@@ -1,29 +1,20 @@
 library(dplyr)
 option <- FALSE
-# devtools::load_all("../../R/optimization.R")
-# devtools::load_all("../../R/tools.R")
-# devtools::load_all("test_dir/test_helpers.R")
 source("test_dir/test_helpers.R")
-#devtools::load_all("tests/testthat/test_dir/test_helpers.R")
-#devtools::load_all("R/optimization.R")
-#devtools::load_all("R/templates.R")
-# expect_none <- function(x) expect_true(sum(x) == 0)
-# expect_one_or_more <- function(x) expect_true(any(x))  
-# expect_all <- function(x) expect_true(all(x))
-# expect_not_all <- function(x) expect_true(!all(x))
-# unconstrained <- function(x) expect_true(TRUE)
-# receives_input <- function(v_set, g) {
-#   V(g)[v_set]$input.signal %>%
-#     lapply(function(array) sum(is.na(array)) == 0) %>% 
-#     unlist
-# }
-context("when building a signal graph object")
-test_that("loadMB produces the Markov blankets", {
+
+
+################################################################################
+context("Data structure")
+################################################################################
+test_that("loadCN produces Markov blankets without bias vertices", {
   case <- rand_case(8, 3)
-  g <- case$g %>% induced.subgraph(V(g)[!is.bias])
+  g <- initializeGraph(case$g, case$data) 
+  g_test <- induced.subgraph(g, V(g)[!is.bias]) %>% loadCN
   g <- loadCN(g)
-  for(v in V(g)){
-    expect_identical(V(g)[v]$causal_nbr, list(c(imb(g, v),v)))
+  for(v in V(g_test)$name){
+    g_cn <- as.numeric(unlist(V(g)[v]$causal_nbr))
+    g_test_cn <- as.numeric(c(imb(g_test, V(g_test)[v]), V(g_test)[v]))
+    expect_equal(g_cn , g_test_cn)
   }
 })
 test_that("initializeGraph generates a signalgraph with all the desirable attributes", {
@@ -222,8 +213,14 @@ test_that("if a vertex is not in a variable in the data, it becomes a hidden var
     all %>% 
     expect_true
 })
-test_that("initializeGraph makes the output signal of fixed variables equivilent to their observed values"{
-  expect_true(FALSE)
+
+test_that("initializeGraph makes the output signal of fixed variables equivilent to their observed values",{
+  case <- rand_case(15, 3)
+  fixed <- get_roots(case$g)
+  g <- initializeGraph(case$g, case$data,fixed = fixed) 
+  lapply(fixed, function(v){
+    expect_identical(V(g)[v]$observed, V(g)[v]$output.signal)
+  })
 })
 
 test_that("if a leaf is not observed in the data, an error is thrown", {
@@ -233,6 +230,7 @@ test_that("if a leaf is not observed in the data, an error is thrown", {
     {`[`(.,setdiff(names(.), V(g)[get_leaves(g)[1]]))}
   expect_error(initializeGraph(g, test_data), "Graph leaves must be observed in the data.")
 })
+
 test_that("initializeEdges provides a graph with 'weight' edge attribute and if the attribute
           already exists, they should have been changed.", {
             case <- rand_case(8, 3)
@@ -242,6 +240,7 @@ test_that("initializeEdges provides a graph with 'weight' edge attribute and if 
             w2 <- E(g)$weight
             expect_true(!identical(w1, w2))
           })
+
 test_that("resetUpdateAttributes changes updated structure of all nodes EXCEPT root nodes", { 
   case <- rand_case(8, 3)
   g <- case$g
@@ -256,9 +255,9 @@ test_that("resetUpdateAttributes changes updated structure of all nodes EXCEPT r
       all %>%
       expect_false}
 })
+
 test_that("initializeGraph returns a graph structure ready for fitting.", {
-  long_test(option)
-  g <- random_unfit_sg(3, 2) # This generates a graph, and calls 'initializeGraph in the final step.
+  g <- random_unfit_sg(10, 2) # This generates a graph, and calls 'initializeGraph in the final step.
   # Fails if you initialize twice
   g_data <- recover_design(g)
   expect_error(
@@ -297,6 +296,7 @@ test_that("initializeGraph returns a graph structure ready for fitting.", {
     {length(.) == 0} %>%
     expect_true
 })
+
 test_that("adjusting 'min.max.constraint' argument gives broader initial weights.", {
   case <- rand_case(5)
   .data <- case$data
@@ -304,6 +304,7 @@ test_that("adjusting 'min.max.constraint' argument gives broader initial weights
     initializeGraph(.data, graph_attr = list(min.max.constraints = c(-100, 100))) %>%
     {E(.)$weight}    
 })
+
 test_that("fitNetwork returns a graph structure", {
   long_test(option)
   g <- random_unfit_sg(3, 2)
@@ -321,8 +322,9 @@ test_that("after the weights of a given vertex has changed, the prediction shoul
 test_that("after a pass at fitting, all edges have been traversed.", {
   long_test(option)
   g1 <- get_gate("AND", c(3, 2))
-  g2 <- update_edges(g1, get_determiners = getDependentEdges, callback = fitWeightsForEdgeTarget)
-  # We know an edge is traversed when fitWeightsForEdgeTarget sets 'updated' attribute to 'TRUE'.
+  g2 <- update_edges(g1, get_determiners = get_dependent_edges, 
+                     callback = fit_weights_for_edge_target)
+  # We know an edge is traversed when fit_weights_for_edge_target sets 'updated' attribute to 'TRUE'.
   c(!E(g1)$updated,  # All edges should initially be unupdated
     E(g2)$updated) %>% # All edges should finally be updated
     all %>%
@@ -340,4 +342,29 @@ test_that("test that if the updated status of biases/roots and input nodes ever 
     {initializeGraph(., data = dplyr::select(titan, age, fare, survived), fixed = c("age", "fare"))}
   V(g)[is.root]$updated <- FALSE
   expect_error(fit_initialized_sg(g,  epsilon = .01, max.iter = 1), "Roots should not have FALSE value for updated attribute.")
+})
+
+test_that("model reproduces logistic activation connection between nodes.", { 
+  g <- data.frame(from = c("A", "B", "C", "D"),
+                  to = c("C", "C", "E", "E")) %>%
+    graph.data.frame 
+  w.0_c = .2; w.a_c = .3; w.b_c = .5; w.0_e = -.2; w.c_e = -4; w.d_4 = 5
+  .data <- data.frame(A = runif(10),
+                      B = runif(10),
+                      D = runif(10)) %>%
+    mutate(C = logistic(w.0_c + w.a_c * A + w.b_c * B ),
+           E = logistic(w.0_e + w.c_e * C + w.d_4 * D))
+  fit <- fitNetwork(g, .data, graph_attr = c(L1_pen = 0, L2_pen = 0))
+  expect_equal(getMSE(fit), 0)  
+})
+
+test_that("Randomly selected weights are within min-max constraints", {
+  case <- rand_case(20)
+  .data <- case$data
+  case$g %>%
+    initializeGraph(.data, graph_attr = list(min.max.constraints = c(-8, 8))) %>%
+    {E(.)$weight} %>%
+    summary %T>%
+    {expect_less_than(.["Max."], 8)} %T>%
+    {expect_more_than(.["Min."], -8)}
 })

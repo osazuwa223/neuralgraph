@@ -1,8 +1,5 @@
-context("causal prioritization")
-devtools::load_all("../../R/causal-prioritization.R")
 option <- FALSE
-#devtools::load_all("R/causal-prioritization.R")
-
+context("Causal Prioritization")
 test_that("loadCN does not include roots.",{
   g <- random_unfit_sg(10, 100)
   g <- loadCN(g)
@@ -13,9 +10,6 @@ test_that("loadCN does not include roots.",{
     }
   })
 })
-
-
-
 
 test_that("causal_selection gets the desired nodes", {
   skip("skipping causal selection")
@@ -59,5 +53,3 @@ test_that("match_set works as expect on a trival examples", {
   expect_identical(match_sets(list1, list2, 3), list(set_1 = c(1, 11, 34, 25, 22, 4), 
                                                      set_2 = k_order_union(list2, 4)))
 })
-
-  
