@@ -12,6 +12,7 @@
 #' @param v.index, the index of a vertex
 #' @return an updated graph model
 calculateVals <- function(g, v){ 
+  #old_output <- unlist(V(g)[v]$output.signal)
   weight_vector <- matrix(E(g)[to(v)]$weight, ncol=1)
   linear_combination <- iparents(g, v) %>%
     ensure_that(length(.) > 0) %>%
@@ -26,18 +27,21 @@ calculateVals <- function(g, v){
   output <- g$activation(linear_combination) # apply activation function and add it to activation function attribute
   V(g)[v]$output.signal <- list(output)
   V(g)[v]$output.signal %>% unlist %>% 
-  ensure_that(checkVector(.))
+    ensure_that(checkVector(.)) 
   g
 }
 
-#' Update the 'signal' at each vertex in a signalgraph object
-#' 
-#' Updates the 'output.signal' attribute of each vertex in the signalgraph.  Relies on the 'updateVertices' 
-#' propagation function in the lucy package, using calculateVals as the callback.
-#' @param g a signalgraph object.
-#' @return a signal graph object with updated values for the signal attributes.
-update_signals <- function(g){
-  update_vertices(g, get_determiners = lucy::iparents, callback = calculateVals)
+#' Order edges for ideal weighting
+#' Recursively backtracks through structure and orders edges by proximity to the
+#' target node, starting with the leaves.
+#' @return a numeric array of edge indices
+order_edges <- function(g, targets = get_leaves(g)){
+  ordering <- as.numeric(E(g)[to(targets)]) 
+  sources <- unique(get_edge_vertex(g, ordering, "from"))
+  if(length(setdiff(sources, get_roots(g))) > 0){
+    ordering <- c(ordering, order_edges(g, sources))
+  }
+  unique(ordering)
 }
 
 #' Update the weight at each edge in a signalgraph object
@@ -46,8 +50,17 @@ update_signals <- function(g){
 #' propagation function in the lucy package, using calculateVals as the callback.
 #' @param g a signalgraph object.
 #' @return a signalgraph object with updated weights.
-update_weights <- function(g){
-  update_edges(g, get_determiners = get_dependent_edges, callback = fit_weights_for_edge_target)
+update_weights <- function(g, verbose = FALSE){
+  ordering <- order_edges(g)
+  for(e in ordering){
+    g <- edge_updater(g, e, get_dependent_edges, fit_weights_for_edge_target, verbose = verbose) 
+  }
+  if(!all(V(g)$updated)){
+    warning("The following were not updated: ", 
+            paste(paste(get_edge_vertex(E(g)[!updated]), collapse = "<-"), collapse = ", ")
+    )
+  }
+  g
 }
 
 #' Find edges that affect an edge's optimization
@@ -83,12 +96,13 @@ get_dependent_edges <- function(g, e){
 #' @param g an igraph object initialized to an unfit signalgraph object
 #' @param epsilon when means square area falls below epsilon, stop
 #' @param max.iter maximum number of iterations
+#' @param verbose if TRUE prints info on propagation
 #' @export
-fit_initialized_sg <- function(g, epsilon = 1e-4, max.iter = 3){
+fit_initialized_sg <- function(g, epsilon = 1e-4, max.iter = 3, verbose = FALSE){
   mse_last <-  getMSE(g)
   for(i in 1:max.iter){
     g <- resetUpdateAttributes(g) %>%
-      update_weights %>% 
+      update_weights(verbose = verbose) %>% 
       update_signals
     `if`(ecount(g) > 3,
          message("First 3 Weights: ", paste(round(E(g)$weight[1:3], 3), collapse =", "), "\n"),
@@ -124,10 +138,11 @@ g
 #' @param max.iter maximum number of iterations
 #' @return A fitted signalgraph object.
 #' @export
-fitNetwork <- function(g, data, fixed = NULL, graph_attr = list(L2_pen = .01), epsilon = 1e-3, max.iter = 3){
+fitNetwork <- function(g, data, fixed = NULL, graph_attr = list(L2_pen = .01), 
+                       epsilon = 1e-3, max.iter = 3, verbose = FALSE){
   g %>% 
     initializeGraph(data, fixed, graph_attr) %>%
-    fit_initialized_sg(epsilon, max.iter)
+    fit_initialized_sg(epsilon, max.iter, verbose = verbose)
 }
 
 

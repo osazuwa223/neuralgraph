@@ -89,7 +89,10 @@ initializeWeights <- function(g){
     if(!is.null(g$prop_sparse)){
       stopifnot(g$prop_sparse > 0 || g$prop_sparse < 1)
       prop_non_zero <- 1 - g$prop_sparse
-      E(g)$weight <-  rep(0, ecount(g)) 
+      E(g)$weight <-  rep(0, ecount(g))
+      for(i in 1:ecount(g)){
+        E(g)[i]$path <- list(NULL)
+      }
       non_zero_count <- ceiling(prop_non_zero * ecount(g))
       non_zero_edge_index <- E(g)[sample(E(g), non_zero_count)]
       E(g)[non_zero_edge_index]$weight <- rnorm(non_zero_count, sd = 3)
@@ -110,7 +113,10 @@ initializeWeights <- function(g){
       E(g)$weight <- rnorm(ecount(g), sd = 3)
       E(g)$weight[E(g)$weight < g$min.max.constraints[1]] <- g$min.max.constraints[1]
       E(g)$weight[E(g)$weight > g$min.max.constraints[2]] <- g$min.max.constraints[2]
-    }
+    }  
+  }
+  for(i in 1:ecount(g)){
+    E(g)[i]$path <- list(E(g)[i]$weight)
   }
   g
 }

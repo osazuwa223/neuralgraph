@@ -4,7 +4,7 @@
 \alias{fit_initialized_sg}
 \title{Fit an initialized network}
 \usage{
-fit_initialized_sg(g, epsilon = 1e-04, max.iter = 3)
+fit_initialized_sg(g, epsilon = 1e-04, max.iter = 3, verbose = FALSE)
 }
 \arguments{
 \item{g}{an igraph object initialized to an unfit signalgraph object}
@@ -12,6 +12,8 @@ fit_initialized_sg(g, epsilon = 1e-04, max.iter = 3)
 \item{epsilon}{when means square area falls below epsilon, stop}
 
 \item{max.iter}{maximum number of iterations}
+
+\item{verbose}{if TRUE prints info on propagation}
 }
 \description{
 Fit an initialized network

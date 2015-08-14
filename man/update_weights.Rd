@@ -4,7 +4,7 @@
 \alias{update_weights}
 \title{Update the weight at each edge in a signalgraph object}
 \usage{
-update_weights(g)
+update_weights(g, verbose = FALSE)
 }
 \arguments{
 \item{g}{a signalgraph object.}

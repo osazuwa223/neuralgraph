@@ -95,6 +95,16 @@ gradientDescent <- function(wts_init, grad, loss, maxit = 100, epsilon = .01){
   wts
 }
 
+#' Update the 'signal' at each vertex in a signalgraph object
+#' 
+#' Updates the 'output.signal' attribute of each vertex in the signalgraph.  Relies on the 'updateVertices' 
+#' propagation function in the lucy package, using calculateVals as the callback.
+#' @param g a signalgraph object.
+#' @return a signal graph object with updated values for the signal attributes.
+update_signals <- function(g){
+  update_vertices(g, get_determiners = lucy::iparents, callback = calculateVals)
+}
+
 #' Get a new graph used for prediction
 #' 
 #' A given vertex has a given set of incoming edges, each of these edges has weights.
@@ -107,16 +117,23 @@ gradientDescent <- function(wts_init, grad, loss, maxit = 100, epsilon = .01){
 #' @return a new updated graph that can be used to generate a prediction.
 getPrediction <- function(g, v, new_weights){
   #message("Prediction function call: candidate weights being propagated forward.")
+  observed_and_random <- intersect(V(g)[is.random], V(g)[is.observed])
   prediction_graph <- resetUpdateAttributes(g) %>%
     ensure_that(length(E(.)[to(v)]) > 0, 
                 err_desc = "Attempted to update incoming edge weights for parentless node.") %>%
     ensure_that(length(E(.)[to(v)]) == length(new_weights),
-                err_desc = "# of weights doesn't match # of incoming edges.")
-  E(prediction_graph)[to(v)]$weight <- new_weights
-  prediction_graph <- update_signals(prediction_graph) %>%
-    ensure_that({ #Make sure all the output signals are valid vectors
-      lapply(V(.)[is.observed]$output.signal, checkVector) %>% unlist %>% all
-    }, err_desc = "One observed vertex has invalid values in output.signal")
+                err_desc = "# of weights doesn't match # of incoming edges.") 
+  if(!all(E(prediction_graph)[to(v)]$weight == new_weights)){ # TRUE when optim test X0
+    E(prediction_graph)[to(v)]$weight <- new_weights
+    prediction_graph <- update_signals(prediction_graph) %>%
+      ensure_that({ #Make sure all the output signals are valid vectors
+        lapply(V(.)[is.observed]$output.signal, checkVector) %>% unlist %>% all
+      }, err_desc = "One observed vertex has invalid values in output.signal")# %>%
+#       ensure_that({
+#         all(examine_signal_graph(prediction_graph)$vertices$output.signal[[1]][, observed_and_random] ==
+#               examine_signal_graph(g)$vertices$output.signal[[1]][, observed_and_random])
+#       }, err_desc = "signals not getting propagated.")
+  } 
   prediction_graph
 }
 
@@ -151,8 +168,9 @@ getObjective <- function(initial_graph, v){
   if(is.null(initial_graph$L1_pen) || is.null(initial_graph$L2_pen)) stop("Penalty has not been specified.")
   lossFunction <- function(wts){
     candidate_graph <- getPrediction(initial_graph, v, wts)
-    prediction <- unlist(V(candidate_graph)[is.observed]$output.signal)
-    observed <- unlist(V(initial_graph)[is.observed]$observed)
+    random_and_observed <- as.numeric(intersect(V(g)[is.random], V(g)[is.observed]))
+    prediction <- unlist(V(candidate_graph)[random_and_observed]$output.signal)
+    observed <- unlist(V(initial_graph)[random_and_observed]$observed)
     sum((observed - prediction) ^ 2) + 
       initial_graph$L1_pen * sum(abs(E(candidate_graph)$weight)) + 
       initial_graph$L2_pen * sum(E(candidate_graph)$weight ^ 2)
@@ -196,7 +214,6 @@ getGradientFunction <- function(g, v){
   gradientFunction
 }
 
-
 #' Closure for optimization with BFGS and specified gradient function
 getOptimizationFunction <- function(g, lossFunction, getGradient){
   if(!is.null(g$min.max.constraints)){
@@ -234,11 +251,22 @@ getOptimizationFunctionNG <- function(g, lossFunction){
 }
 
 fitWeightsForNode <- function(g, v){
+  message("Optimizing incoming edges to vertex ", V(g)[v]$name)
   lossFunction <- getObjective(g, v) 
   weights.initial <- E(g)[to(v)]$weight
   optimizer <- getOptimizationFunctionNG(g, lossFunction)
   weights.updated <- optimizer(weights.initial)
   E(g)[to(v)]$weight <- weights.updated
+  # Add to the trace
+  for(j in 1:length(E(g)[to(v)])){
+    path <- E(g)[to(v)][j]$path[[1]]
+    updated_path <- c(path, weights.updated[j]) 
+    E(g)[to(v)][j]$path <- list(updated_path)
+    len <- length(updated_path)
+    edge_name <- paste(V(g)[get_edge_vertex(g, E(g)[to(v)][j])]$name, collapse = "->")
+    message("Last ", min(len, 5), " estimates for edge ", edge_name, ": ", 
+            paste(round(updated_path, 3), collapse = ", "))
+  }
   g
 }
 
@@ -256,13 +284,13 @@ fitWeightsForNode <- function(g, v){
 fit_weights_for_edge_target <- function(g, e){
   e <- as.numeric(e)
   old_weight <- E(g)[e]$weight
-  edge.target <- igraph::get.edgelist(g)[e, 2]
-  message("Fitting for edge ", 
-          paste(V(g)[get_edge_vertex(g, E(g)[e])]$name, 
-                collapse = "->"))
+  edge.target <- get_edge_vertex(g, e, "to")
+#   message("Fitting for edge ", 
+#           paste(V(g)[get_edge_vertex(g, E(g)[e])]$name, 
+#                 collapse = "->"))
   g <- fitWeightsForNode(g, edge.target)
-  new_weight <- E(g)[e]$weight
-  message(E(g)[e]$name, ': Old weight = ', round(old_weight, 4), ', New Weight = ', round(new_weight, 4))
+#   new_weight <- E(g)[e]$weight
+#   message(E(g)[e]$name, ': Old weight = ', round(old_weight, 4), ', New Weight = ', round(new_weight, 4))
   E(g)[e]$updated <- TRUE
   g
 }
