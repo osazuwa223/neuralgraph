@@ -4,7 +4,7 @@
 \alias{update_signals}
 \title{Update the 'signal' at each vertex in a signalgraph object}
 \usage{
-update_signals(g)
+update_signals(g, verbose = TRUE)
 }
 \arguments{
 \item{g}{a signalgraph object.}
@@ -14,6 +14,6 @@ a signal graph object with updated values for the signal attributes.
 }
 \description{
 Updates the 'output.signal' attribute of each vertex in the signalgraph.  Relies on the 'updateVertices'
-propagation function in the lucy package, using calculateVals as the callback.
+propagation function in the lucy package, using calculate_signal as the callback.
 }
 

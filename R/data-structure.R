@@ -72,7 +72,6 @@ resetUpdateAttributes <- function(g){
     if(any(!(root_update))) stop("Roots should not have FALSE value for updated attribute.")
   }
   V(g)$updated <- FALSE
-  E(g)$updated <- FALSE
   V(g)[V(g)$is.root]$updated <- TRUE
   g
 }

@@ -228,7 +228,7 @@ sim_results_list <- list(mse_set = list(),
                          btw_set = list(),
                          fit = list())
 pdf("prelim_sim_results.pdf", width = 13)
-p <- 7
+p <- 20
 data(mapk_g)
 for(i in 1:m){
   g <- sim_system(p, 100, input_g = mapk_g)

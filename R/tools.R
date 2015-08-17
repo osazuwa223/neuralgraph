@@ -1,4 +1,42 @@
+#' The logistic function
+#' The logistic function and its derivative (used in gradient calculations).
+#' @export
+logistic <- function(z) 1 / (1 + exp(-z))
+#' @rdname logistic
+#' @export 
+logistic_prime <- function(z) logistic(z) * (1 - logistic(z))
 
+#' MSE calculation
+#' 
+#' vertexMSE calculates the mean squared error for a given fitted variables in a signalgraph 
+#' object. vertexMSEs calculates MSE for each fitted vertices and returns an array of values.
+#' getMSE calculates the mean squared error for all the fitted variables in a signalgraph 
+#' object, then reports the mean of means.
+#' 
+#' @param g a signal graph object
+#' @param v a vertex id in the signal graph
+#' @export 
+getMSE <- function(g){
+  response_variables <- intersect(V(g)[is.random], V(g)[is.observed])
+  k <- length(V(g)[response_variables])
+  observed <- unlist(V(g)[response_variables]$observed)
+  prediction <- unlist(V(g)[response_variables]$output.signal)
+  sum((observed - prediction) ^ 2) / g$n / k
+}
+#' @rdname getMSE
+#' @export
+vertexMSE <- function(g, v){
+  if(!V(g)[v]$is.random) stop("vertex is not a random variable.")
+  (sum(unlist(V(g)[v]$observed) - unlist(V(g)[v]$output.signal))^2) / g$n
+}
+#' @rdname getMSE
+#' @export
+vertexMSEs <- function(g){
+  observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
+  lapply(V(g)[observed_and_random], function(v) vertexMSE(g, v)) %>%
+    unlist %>%
+    structure(names = V(g)[observed_and_random]$name)
+}
 
 #' Rescale the column of a data frame to between 0 and 1
 rescale_df <- function(df){
@@ -138,24 +176,6 @@ get_structure <- function(g){
     graph.edgelist # Add them back in
 }
 
-#' Get the mean squared error for a given vertex
-#' 
-#' vertexMSEs retrieves Get the mean squared error for all the random vertices
-#' @param g a signalgraph object
-#' @param v a vertex id in the signal graph
-#' @return means squared error calculation
-#' @export
-vertexMSE <- function(g, v){
-  if(!V(g)[v]$is.random) stop("vertex is not a random variable.")
-  (sum(unlist(V(g)[v]$observed) - unlist(V(g)[v]$output.signal))^2) / g$n
-}
-#' @rdname vertexMSE
-#' @export
-vertexMSEs <- function(g){
-  observed_and_random <- intersect(V(g)[is.observed], V(g)[is.random])
-  lapply(V(g)[observed_and_random], function(v) vertexMSE(g, v)) %>%
-    unlist %>%
-    structure(names = V(g)[observed_and_random]$name)
-}
+
 
 

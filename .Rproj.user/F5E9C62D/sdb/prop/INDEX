@@ -72,6 +72,7 @@
 ~%2FDropbox%2Fcode%2Fsignalgraph%2Fman%2Fsignalgraph-package.Rd="B4FBE963"
 ~%2FDropbox%2Fcode%2Fsignalgraph%2Fman%2FupdateSignals.Rd="326F53DF"
 ~%2FDropbox%2Fcode%2Fsignalgraph%2Fman%2FupdateWeights.Rd="7E778221"
+~%2FDropbox%2Fcode%2Fsignalgraph%2Ftests%2Ftestthat%2Ftest-backpropagation.R="A3CE56BA"
 ~%2FDropbox%2Fcode%2Fsignalgraph%2Ftests%2Ftestthat%2Ftest-causal_prioritization.R="CAD91835"
 ~%2FDropbox%2Fcode%2Fsignalgraph%2Ftests%2Ftestthat%2Ftest-data-structure.R="905E348C"
 ~%2FDropbox%2Fcode%2Fsignalgraph%2Ftests%2Ftestthat%2Ftest-fitting.R="7008337B"

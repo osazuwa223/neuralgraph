@@ -5,7 +5,7 @@
 \title{Fit a Signalgraph model}
 \usage{
 fitNetwork(g, data, fixed = NULL, graph_attr = list(L2_pen = 0.01),
-  epsilon = 0.001, max.iter = 3, verbose = FALSE)
+  min.iter = 2, max.iter = 5, epsilon = 1e-04, verbose = FALSE)
 }
 \arguments{
 \item{g}{igraph object. The vertices must be named.}
@@ -23,9 +23,12 @@ fitNetwork(g, data, fixed = NULL, graph_attr = list(L2_pen = 0.01),
  \item{min.max.constraints:}{ 2 element numeric containing the acceptable range for each rate.}
  }}
 
-\item{epsilon}{when means square area falls below epsilon, stop}
+\item{min.iter}{minimum number of iterations}
 
 \item{max.iter}{maximum number of iterations}
+
+\item{epsilon}{after the minimum number of iterations, when change in means squared error
+between iterations falls below epsilon, cease optimizing and return current estimates}
 }
 \value{
 A fitted signalgraph object.

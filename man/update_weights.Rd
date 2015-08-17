@@ -2,7 +2,7 @@
 % Please edit documentation in R/fitting.R
 \name{update_weights}
 \alias{update_weights}
-\title{Update the weight at each edge in a signalgraph object}
+\title{Update the weights for the incoming edges of a vertex in a signalgraph object}
 \usage{
 update_weights(g, verbose = FALSE)
 }
@@ -13,7 +13,8 @@ update_weights(g, verbose = FALSE)
 a signalgraph object with updated weights.
 }
 \description{
-Updates the 'weight' attribute of each edge in the signalgraph.  Relies on the 'updateedges'
-propagation function in the lucy package, using calculateVals as the callback.
+Updates the 'weight' attribute of each incoming edge for a vertex in the signalgraph.
+Relies on the 'update_vertices' propagation function in the lucy package,
+using calculate_signal as the callback.
 }
 

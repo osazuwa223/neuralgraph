@@ -142,7 +142,7 @@ test_that("MLP has expected boolean attributes.", {
 })
 test_that("fixed variables become roots, random variables become not-roots, and get biases ", {
   expect_equal(names(formals(initializeGraph)), c("g", "data", "fixed", "graph_attr"))
-  expect_equal(names(formals(fitNetwork)), c("g", "data", "fixed", "graph_attr", "epsilon", "max.iter"))
+  expect_equal(names(formals(fitNetwork)), c("g", "data", "fixed", "graph_attr", "min.iter", "max.iter", "epsilon"))
   data(mtcars)
   my_data <- mtcars %>% 
     rescale_df %>%
