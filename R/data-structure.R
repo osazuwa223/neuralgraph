@@ -109,7 +109,7 @@ initializeWeights <- function(g){
       non_zero_edge_index <- E(g)[sample(E(g), non_zero_count)]
       E(g)[non_zero_edge_index]$weight <- runif(non_zero_count, min = g$min.max.constraints[1], max = g$min.max.constraints[2])
     } else {
-      E(g)$weight <- rnorm(ecount(g), sd = 3)
+      E(g)$weight <- rnorm(ecount(g), sd = 20)
       E(g)$weight[E(g)$weight < g$min.max.constraints[1]] <- g$min.max.constraints[1]
       E(g)$weight[E(g)$weight > g$min.max.constraints[2]] <- g$min.max.constraints[2]
     }  
@@ -324,6 +324,8 @@ initializeEdges <- function(g){
 #' @return A graph with all the attributes needed to fit the neural network model.
 #' @export
 initializeGraph <- function(g, data, fixed = NULL, graph_attr = NULL){
+  if(!is.dag(g)) stop("graph must have a directed acyclic graph structure")
+  if(!is.simple(g)) stop("graph structure must be 'simple'; no multi-edges.")
   g %>%
     checkArgs(data, fixed) %>% # Check the arguments
     initializeGraphAttributes(graph_attr, nrow(data)) %>% # Add the graph attributes

@@ -43,7 +43,7 @@ fit_initialized_sg <- function(g, min.iter = 2, max.iter = 5, epsilon = 1e-4, ve
       update_weights(verbose = verbose) %>% 
       ensure(!identical(., g_last), err_desc = "failed to produced updated graph") %>%
       resetUpdateAttributes %>%
-      update_signals2 
+      update_signals
     mse_last <- mse
     mse <- getMSE(g) %T>% # Get the new MSE
       {message("Mean Squared Error: ", round(., 6), "\n")} 
@@ -123,7 +123,7 @@ getLinearCombination <- function(wts, model.mat) as.numeric(model.mat %*% wts)
 update_weights <- function(g, verbose = FALSE){
   ordering <- order_vertices(g)
   for(v in ordering){
-    g <- vertex_updater2(g, v, get_downstream_vertices, fit_weights_for_node, verbose = verbose) 
+    g <- vertex_updater(g, v, get_downstream_vertices, fit_weights_for_node, verbose = verbose) 
   }
   if(!all(V(g)$updated)){
     warning("The following vertices had edges that were not updated: ", 
@@ -285,7 +285,7 @@ getPrediction <- function(g, v, new_weights){
                 err_desc = "# of weights doesn't match # of incoming edges.") 
   if(!all(E(prediction_graph)[to(v)]$weight == new_weights)){ # TRUE when optim test X0
     E(prediction_graph)[to(v)]$weight <- new_weights
-    prediction_graph <- update_signals2(prediction_graph) %>%
+    prediction_graph <- update_signals(prediction_graph) %>%
       ensure_that({ #Make sure all the output signals are valid vectors
         lapply(V(.)[is.observed]$output.signal, checkVector) %>% unlist %>% all
       }, err_desc = "One observed vertex has invalid values in output.signal")# %>%

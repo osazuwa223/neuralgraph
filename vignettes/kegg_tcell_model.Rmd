@@ -15,18 +15,18 @@ Load the processed T-cell data.
 
 ```{r}
 data(tcells, package = "bninfo")
-.data <- tcells$raw_data[[1]]
 ```
 
 The T-cell data uses protein names.  I need to map these to KEGG names
 
 ```{r}
-protein_names <- names(.data)
+protein_names <- names(tcells$raw_data$cd3cd28)
 sachs_kegg_map <- data.frame(
   label = c("Raf", "Mek", "Plcg", "Erk", "Akt", "PKC", "P38", "Jnk", "PKA"),
-  kegg = c("hsa:5894", "hsa:5604", "hsa:5335", "hsa:5594", "hsa:10000", "hsa:5588", "hsa:1432", "hsa:5601", "hsa:5566"),
+  kegg = c("hsa:5894", "hsa:5604", "hsa:5335", "hsa:5594", "hsa:10000", "hsa:5588", "hsa:1432", 
+           "hsa:5601", "hsa:5566"),
   stringsAsFactors = F
-) %>%
+  ) %>%
   `rownames<-`(.$kegg)
 sachs_kegg_map
 ```
@@ -37,7 +37,7 @@ I use KEGGgraph to grab the T cell receptor signaling pathway.  By default this 
 ```{r}
 library(KEGGgraph)
 library(dplyr)
-maps <- c(tcell = "04660", mapk = "04010", P13k = "04151", ras = "04014", rap1 = "04015")
+maps <- c(tcell = "04660", mapk = "04010", P13k = "04151", ras = "04014")#, rap1 = "04015")
 vertex_master <- NULL
 edge_master <- NULL
 for(map in maps){
@@ -47,13 +47,24 @@ for(map in maps){
   vertex_list <- getKEGGnodeData(g_nell) %>%
     {data.frame(
       kegg = unlist(lapply(., function(item) item@name[1])),
-      label = unlist(lapply(., function(item) strsplit(item@graphics@name, ",")[[1]][1])),
+      label = gsub("\\.", "", unlist(
+        lapply(., function(item) strsplit(item@graphics@name, ",")[[1]][1]))),
       stringsAsFactors = F)}
   g <- igraph.from.graphNEL(g_nell) 
   V(g)$name <- vertex_list$kegg 
   edge_list <- getKEGGedgeData(g_nell) %>%
     lapply(function(item){
-      if(length(item@subtype) > 0) return(item@subtype$subtype@name)
+      if(length(item@subtype) > 0) {
+        subtype_info <- item@subtype
+        # KEGG uses a hierarchy of term for describing terms
+        # for example, the first edge type is "activation", the second is "phosphorylation"
+        # where phosphorylation is a type of activation.  The second term is more specific than
+        # the first, so when it is provided, use it in lieu of the first type.
+        if(length(subtype_info) > 1) {
+          return(subtype_info[[2]]@name)
+        } 
+        return(subtype_info$subtype@name)
+      }
       NA
     }) %>%
     unlist %>%
@@ -62,40 +73,85 @@ for(map in maps){
   edge_master <- rbind(edge_master, edge_list)
   vertex_master <- rbind(vertex_master, vertex_list)
 }
-edge_master <- edge_master %>%
+phospho_edges <- edge_master %>%
   as.data.frame %>%
+  {.$V1[.$V1 == "hsa:5601"] <-  "hsa:5599"; .} %>% # 5601 and 5999 are both JNK.  Use only one JNK
+  {.$V2[.$V2 == "hsa:5601"] <- "hsa:5599"; .} %>%
+  {.$V1[.$V1 %in% c("hsa:5578", "hsa:5579", "hsa:5582")] <- "hsa:5588"; .} %>%
+  {.$V2[.$V2 %in% c("hsa:5578", "hsa:5579", "hsa:5582")] <- "hsa:5588"; .} %>%
   unique %>%
-  filter(!(type %in% c("indirect effect", "dissociation", "compound", "dephosphorylation", "binding/association")))  
-vertex_master <- unique(as.data.frame(vertex_master))
-g_igraph <- graph.data.frame(edge_master, directed = TRUE, vertices = vertex_master) %>%
+  filter(type == "phosphorylation")
+  
+  #filter(!(type %in% c("indirect effect", "dissociation", "compound", "dephosphorylation", "binding/association")))  
+vertex_master <- vertex_master %>%
+  as.data.frame %>%
+  {.$kegg[.$kegg == "hsa:5601"] <- "hsa:5599"; .} %>%
+  {.$label[.$kegg == "hsa:5599"] <- "Jnk"; .} %>%
+  # Merge the PKC's
+  {.$kegg[.$kegg %in% c("hsa:5578", "hsa:5579", "hsa:5582")] <- "hsa:5588"; .} %>%
+  {.$label[.$kegg == "hsa:5588"] <- "PKC"; .} %>%
+  unique 
+
+g_igraph <- graph.data.frame(phospho_edges, directed = TRUE, vertices = vertex_master) %>%
   simplify(edge.attr.comb = "concat")
 ```
 
-```{r}
-v_proteins <- V(g_igraph)[name %in% sachs_kegg_map$kegg] 
-V(g_igraph)[v_proteins]$name <- sachs_kegg_map[v_proteins$name, "label"]
-```
-The gene names are informative but not unique, the KEGG id's vice versa, so I combine the two.  The proteins in the data keep their original names.
-
-The trisphosphate compounds PIP2 and PIP3 are in the data, but in KEGG they are a [compound](http://www.kegg.jp/dbget-bin/www_bget?C01245).  I add these back in, as well as protein kinase A (PKA) and some other interactions from other pathways (see references below).  I also remove the unlinked vertices.
+The gene names are informative but not unique, the KEGG id's vice versa, so I combine the two.  The proteins in the data keep their original names.  The trisphosphate compounds PIP2 and PIP3 are in the data, but in KEGG they are a [compound](http://www.kegg.jp/dbget-bin/www_bget?C01245).  I add these back in, as well as protein kinase A (PKA) and some other interactions from other pathways (see references below).  Then I add in the interventions in the data to the graph.
 
 ```{r}
+# Give use labels instead of kegg ids
+V(g_igraph)$kegg_id <- V(g_igraph)$name
+V(g_igraph)$name <- V(g_igraph)$label
+# Rename ones in data
+v_proteins <- V(g_igraph)[kegg_id %in% sachs_kegg_map$kegg] 
+V(g_igraph)[v_proteins]$name <- sachs_kegg_map[v_proteins$kegg_id, "label"]
+# Change the name of other key pathway proteins
+#V(g_igraph)[keepers[!is.na(keepers$label)]]$name <- V(g_igraph)[keepers[!is.na(keepers$label)]]$label
+
+# "hsa:23533" is "PIK3R5" is PI3K
+
 # Add in the missing vertices and edges
-g_igraph <- g_igraph - V(g_igraph)[duplicated(V(g_igraph)$name)]
-g_igraph <- g_igraph + vertices(c("PIP2", "PIP3")) 
-g_igraph <- g_igraph + igraph::edges(c("Plcg", "PIP3", 
-                                       "PIP3", "PIP2", 
-                                       "Plcg", "PIP2")) 
+V(g_igraph)["PIK3R5"]$name <- "PI3K"
+g_igraph <- g_igraph +
+  vertices(c("PIP2", "PIP3")) + # add in PI3K and phosphatidylinositols
+  igraph::edges(
+    c("PI3K", "PIP3",
+      "PI3K", "PIP2",
+      "Plcg", "PIP3", # add in phosphatidylinositols edges
+      "PIP3", "PIP2", 
+      "Plcg", "PIP2",
+      "PIP3", "Akt")) 
 
-V(g_igraph)["hsa:10125"]$name <- "RASGRP1"
-V(g_igraph)["hsa:3265"]$name <- "Ras"
-V(g_igraph)["hsa:5609"]$name <- "Mek7"
-V(g_igraph)["hsa:6885"]$name <- "Mekk7"
-V(g_igraph)["hsa:5578"]$name <- "PKCA"
-V(g_igraph)["hsa:5584"]$name <- "PKCI"
+# + 
+#   igraph::edges(
+#     c("PKC", "MAP3K1",
+#       "PKC", "MAP2K4", 
+#       "PKA", "MAP3K1"))
 
+#V(g_igraph)["hsa:5584"]$name <- "PKCI"
+#Edges not in KEGG suggested by Sachs Paper
+# c("PKC", "MP")
+# new_edges <- c(V(g_igraph)["PKC"], V(g_igraph)["MAP3K1"], 
+#            V(g_igraph)["PKC"], V(g_igraph)["hsa:6416"],
+#            V(g_igraph)["PKA"], V(g_igraph)["hsa:4214"], 
+#            V(g_igraph)["PIP3"], V(g_igraph)["Akt"], 
+#            V(g_igraph)["hsa:4214"], V(g_igraph)["hsa:5599"],
+#            V(g_igraph)["hsa:6416"], V(g_igraph)["Jnk"], 
+#            V(g_igraph)["PKC"], V(g_igraph)["hsa:22800"], 
+#            V(g_igraph)["hsa:22800"],V(g_igraph)["Raf"])
+# g_old <- g_igraph
+# g_igraph <- add_edges(g_igraph, new_edges)
+# g_igraph <- add_vertices(g_igraph, 1, attr = list(name = "Raf497", label = "Raf497"))
+# g_igraph <- add_edges(g_igraph, c(V(g_igraph)["PKC"], V(g_igraph)["Raf497"],
+#                                   V(g_igraph)["Raf497"], V(g_igraph)["Mek"]))
+```
+
+I remove the unlinked vertices.
+
+```{r}
 g_igraph <- g_igraph - V(g_igraph)[igraph::degree(g_igraph) == 0]
 ```
+
 
 Plotting with RGraphviz.  The green nodes are are the proteins observed in the data.
 
@@ -110,24 +166,49 @@ g_igraph %>% # Give vertices names if they do not have nay
   {Rgraphviz::renderGraph(.)} # Render the graph
 ```
 
-Now I add in the interventions in the data to the graph.
-
 ```{r}
-ints <- c("int_PKA", "int_PKC", "int_PIP2", "int_Mek", "int_Akt")
-g_igraph <- g_igraph + vertices(ints)
-g_igraph <- g_igraph + igraph::edges(c("int_PKA", "PKA",
-                                       "int_PKC", "PKC",
-                                       "int_PKC", "PKCA",
-                                       "int_PKC", "PKCI",
-                                       "int_Mek", "Mek",
-                                       "int_Akt", "Akt",
-                                       "int_PIP2", "PIP2"))
+V(g_igraph)["RRAS2"]$name <- "Ras"
+
+g_igraph <- g_igraph + igraph::edges(
+  c("Ras", "Raf",
+    "PKC", "Ras", # This  is a phosphorylation, not sure how was missed
+    "PKC", "MAP3K7", # A non-phospho edge, adding it preserves PKC link to JNK implied by Sachs via Map3k7 and map2k7
+    "MAP3K7", "MAP2K7", # This should have been recovered when I combined JNKs.  Not sure of error.
+    "PKA", "MAP3K1",
+    "PKA", "Raf", # Preserve PKA link to Raf via non-phospho edge with Rap1
+    "PKC", "MAP3K5"))# No evidence of this in KEGG, but Sachs paper and Sachs data suggests it
+  # or perhaps leave this out and suggest the method "discovered" it in the data
+  # Inferred between PKC and PKA in paper is justified via a PKC ->cAMP -> PKA relationship.  Cant
+  # find evidence of this in KEGG.  Leaving it out.
+  # Lots of other edges
+g_igraph <- tryCatch(delete_edges(g_igraph,  E(g_igraph)[from("MAP2K7")][to("MAP3K7")] ),
+                     error = function(e) g_igraph) # Not sure how this got in there.
+  
+  
+# add a second Raf directly to the model
+
+
+#            V(g_igraph)["hsa:4214"], V(g_igraph)["hsa:5599"],
+#            V(g_igraph)["hsa:6416"], V(g_igraph)["Jnk"], 
+#            V(g_igraph)["PKC"], V(g_igraph)["hsa:22800"], 
+#            V(g_igraph)["hsa:22800"],V(g_igraph)["Raf"])                                 
+                                 
+# LFA-1 intervention on RAS
+direct_interventions <- c("act_RAS", "act_PKA", "act_PI3K", "act_PKC", "ihb_PIP2")
+g_igraph <- g_igraph + 
+  vertices(direct_interventions) + 
+  igraph::edges(
+    c("act_RAS", "Ras",
+      "act_PKA", "PKA",
+      "act_PI3K", "PI3K",
+      "act_PKC", "PKC",
+      "ihb_PIP2", "PIP2"))
 node_list <- c(rep("green", length(protein_names)),
-               rep("orange", length(ints))) %>% 
-  structure(names = c(protein_names, ints)) %>%
+               rep("orange", length(direct_interventions))) %>% 
+  structure(names = c(protein_names, direct_interventions)) %>%
   {list(fill = ., fontsize = .01)} 
 g_igraph %>% # Give vertices names if they do not have nay 
-  igraph.to.graphNEL(.) %>% # convert to a graphNEL
+  igraph.to.graphNEL %>% # convert to a graphNEL
   {Rgraphviz::layoutGraph(.)} %>% # lay the graph out
   {graph::`nodeRenderInfo<-`(., node_list)} %>%
   {Rgraphviz::renderGraph(.)} # Render the graph
@@ -135,29 +216,114 @@ g_igraph %>% # Give vertices names if they do not have nay
 
 To map how signal flows between these highlighted nodes, I zoom in on nodes that are both downstream and upstream of nodes that have data.
 
+
 ```{r}
-observed <- V(g_igraph)[c(ints, protein_names)]
+observed <- V(g_igraph)[c(protein_names, direct_interventions)]
 unobserved <- V(g_igraph)[setdiff(V(g_igraph)$name, observed$name)]
 keepers <- unobserved[sapply(unobserved, function(B){
   is_downstream <- any(sapply(observed, function(A) isBDownstreamOfA(g_igraph, A, B)))
   is_upstream <- any(sapply(observed, function(A) isBUpstreamOfA(g_igraph, A, B)))
   is_downstream && is_upstream
 })]
-V(g_igraph)[keepers]$name <- V(g_igraph)[keepers]$label
+V(g_igraph)[keepers[!is.na(keepers$label)]]$name <- V(g_igraph)[keepers[!is.na(keepers$label)]]$label
 tossers <- V(g_igraph)[setdiff(V(g_igraph), c(observed, keepers))]
-sub_net <- g_igraph - tossers
-sub_net <- sub_net - E(sub_net)[from("Plcg")][to("PKC")]
+sub_net <- delete_vertices(g_igraph, tossers)
+V(sub_net)["RRAS2"]$name <- "Ras"
+V(sub_net)["PIK3R5"]$name <- "PI3K"
+node_list <- c(rep("green", length(protein_names)),
+               rep("orange", length(direct_interventions))) %>% 
+  structure(names = c(protein_names, direct_interventions)) %>%
+  {list(fill = ., fontsize = 30)} 
+sub_net %>%
+  igraph.to.graphNEL %>%
+  layoutGraph %>%
+  {graph::`nodeRenderInfo<-`(., node_list)} %>%
+  renderGraph
+```
+
+```{r}
+activity_blockers <- paste0("ihb_", c("Mek", "Akt", "PKC", "PI3K"))
+activity_blocker_edges <- lapply(V(sub_net)[c("Mek", "Akt", "PKC", "PI3K")], function(v){
+  inhibition <- paste0("ihb_", V(sub_net)[v]$name)
+  cbind(inhibition, V(sub_net)[ichildren(sub_net, v)]$name)
+  }) %>% 
+  {do.call("rbind", .)} %>%
+  t %>%
+  as.character
+sub_net <- sub_net + 
+  vertices(activity_blockers) +
+  igraph::edges(activity_blocker_edges)
+ints <- c(direct_interventions, activity_blockers)
 node_list <- c(rep("green", length(protein_names)),
                rep("orange", length(ints))) %>% 
   structure(names = c(protein_names, ints)) %>%
   {list(fill = ., fontsize = 30)} 
 sub_net %>%
-  igraph.to.graphNEL(.) %>%
-  layoutGraph(.) %>%
+  igraph.to.graphNEL %>%
+  layoutGraph %>%
   {graph::`nodeRenderInfo<-`(., node_list)} %>%
-  renderGraph(g_out)
+  renderGraph  
 ```
 
+
+
+```{r}
+#icam2 = act_RAS, aktinhib = ihb_Akt, g0076 = ihb_PKC, psit = ihb_PIP2, U0126 = ihb_Mek,
+#ly = ihb_PI3k, pma = act_PKC, b2camp = act_PKA, cd3cd28 = act_PI3K
+# Might have to add iterventions to children
+devtools::load_all()
+.data_list <- tcells$raw_data %>%
+  lapply(function(.data){
+    log(.data) %>% 
+      rescale_df %$%
+      df %>%
+      mutate(act_RAS = 0, act_PKA = 0, act_PKC = 0, act_PI3K = 1, ihb_Akt = 0, ihb_PKC = 0, 
+           ihb_PIP2 = 0, ihb_Mek = 0, ihb_PI3K = 0)
+    })
+icam_set <- c("cd3cd28icam2+aktinhib", "cd3cd28icam2+g0076", "cd3cd28icam2+psit", 
+             "cd3cd28icam2+u0126", "cd3cd28icam2+ly", "cd3cd28icam2")
+.data_list[icam_set] <- .data_list[icam_set] %>%
+  lapply(function(.data){
+      mutate(.data, act_RAS = 1, ihb_Akt = 0, ihb_PKC = 0, 
+           ihb_PIP2 = 0, ihb_Mek = 0, act_PKA = 0)
+  })
+# Remove RAS and PI3K activation from PKA and PKC activation datasets. Add PKA and PKC activation
+.data_list[c("pma", "b2camp" )] <- .data_list[c("pma", "b2camp" )] %>%
+  lapply(function(.data){
+    mutate(.data, act_PKC = 1, act_PKA = 0, act_RAS = 0, act_PI3K = 0)
+  })
+.data_list$b2camp$act_PKC <- 0
+.data_list$b2camp$act_PKA <- 1
+
+# Add inhibitions
+.data_list[["cd3cd28icam2+aktinhib"]]$ihb_Akt <- 1
+.data_list[["cd3cd28+aktinhib"]]$ihb_Akt <- 1
+.data_list[["cd3cd28icam2+g0076"]]$ihb_PKC <- 1
+.data_list[["cd3cd28+g0076"]]$ihb_PKC <- 1
+.data_list[["cd3cd28icam2+psit"]]$ihb_PIP2 <- 1
+.data_list[["cd3cd28+psitect"]]$ihb_PIP2 <- 1
+.data_list[["cd3cd28icam2+u0126"]]$ihb_Mek <- 1
+.data_list[["cd3cd28+u0126"]]$ihb_Mek <- 1
+.data_list[["cd3cd28icam2+ly"]]$ihb_PI3K <- 1
+.data_list[["cd3cd28+ly"]]$ihb_PI3K <- 1
+.data <- as.data.frame(do.call("rbind", .data_list))
+```
+
+```{r}
+.sub_data <- sample_n(.data, 100)
+sub_net <- simplify(sub_net)
+g <- initializeGraph(sub_net, data = .sub_data, fixed = ints, graph_attr = list(L2_pen = .04))
+fit1 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L2_pen = .04,
+                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+fit2 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L2_pen = .01,
+                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+fit3 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L1_pen = .01, L2_pen = .01,
+                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+fit4 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L2_pen = .005,
+                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+fit5 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L1_pen = .005, L2_pen = .005,
+                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+```
 
 
 ### References

@@ -186,7 +186,7 @@ test_that("If a downstream vertex is not optimized, it gets optimized first", {
   g <- resetUpdateAttributes(g)
   # start of update_weights, where vertices are normalis
   expect_message(
-    vertex_updater2(g, 7, get_downstream_vertices, fit_weights_for_node, verbose = TRUE),
+    vertex_updater(g, 7, get_downstream_vertices, fit_weights_for_node, verbose = TRUE),
     "propagating to vertices 5, 9, 10"
   ) # not sure how to exclude 8
   }

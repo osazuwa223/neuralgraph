@@ -235,11 +235,11 @@ for(i in 1:m){
   novel_edge <- get_novel_edge(g)  
   novel_edge_named <- V(g)[get_edge_vertex(g, novel_edge)]$name
   g_sub <- g - novel_edge
-  g_sub$min.max.constraints <- c(-8, 8)
-  g_sub$L2_pen <- .2
+  g_sub$min.max.constraints <- c(-50, 50)
+  g_sub$L2_pen <- .04
   #sim_plotter(g, novel_edge)
   fitted_model <- fit_initialized_sg(g_sub, verbose=TRUE)
-  suggested_sets <- causal_prioritization(fitted_model, k = 2)
+  suggested_sets <- causal_prioritization(fitted_model, k = 1)
   mse_set <- suggested_sets$mse_set
   btw_set <- suggested_sets$btw_set
   novel_edge_vertices <- get_edge_vertex(g, novel_edge)
