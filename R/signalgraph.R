@@ -57,3 +57,14 @@ NULL
 #' @format An igraph object with 60 vertices and 76 edges.  Vertex attributes include "label"
 #' ("MAP4K4", "PLA2G4B", "STMN1"...) and "kid" for KEGG ids ("hsa:9448", "hsa:100137049", "hsa:3925",...) 
 NULL
+
+#' Fits of signal graph model to KEGG data
+#' 
+#' A collection of signal graph fits to various graphs constructed from signaling pathways in KEGG.
+#' 
+#' @docType data
+#' @keywords datasets
+#' @name historic_fits
+#' @usage data(historic_fits)
+#' @format A list of lists, each list element containing the elements "fit" and "notes".
+NULL

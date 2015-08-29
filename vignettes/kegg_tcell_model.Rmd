@@ -310,15 +310,28 @@ icam_set <- c("cd3cd28icam2+aktinhib", "cd3cd28icam2+g0076", "cd3cd28icam2+psit"
 ```
 
 ```{r}
-.sub_data <- sample_n(.data, 100)
 sub_net <- simplify(sub_net)
-g <- initializeGraph(sub_net, data = .sub_data, fixed = ints, graph_attr = list(L2_pen = .04))
-fit1 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L2_pen = .04,
-                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+.sub_data <- sample_n(.data, 500)
+system.time(fit1 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L2_pen = .01,
+                                                               min.max.constraints = c(-50, 50)), 
+                   max.iter = 1, verbose = TRUE))
+getMSE(fit1) # 
+vertexMSEs(fit1)
+sg_viz(fit1)
+qqnorm(unlist(V(fit1)["Erk"]$observed) - unlist(V(fit1)["Erk"]$output.signal))
+  fit11 <- fit_initialized_sg(fit1, max.iter = 1, verbose = TRUE)
+getMSE(fit11)
+sg_viz(fit11)
+fit111 <- fit_initialized_sg(fit11, min.iter = 3, verbose = TRUE)
+# Also check errors
 fit2 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L2_pen = .01,
-                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+                                                               min.max.constraints = c(-50, 50)), 
+                   max.iter = 1, verbose = TRUE)
+fit21 <- fit_initialized_sg(fit2, max.iter = 1, verbose = TRUE)
 fit3 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L1_pen = .01, L2_pen = .01,
-                                                               min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
+                                                               min.max.constraints = c(-50, 50)), 
+                   max.iter = 1, verbose = TRUE)
+fit31 <- fit_initialized_sg(fit2, max.iter = 1, verbose = TRUE)
 fit4 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L2_pen = .005,
                                                                min.max.constraints = c(-50, 50)), max.iter = 1, verbose = TRUE)
 fit5 <- fitNetwork(sub_net, .sub_data, fixed = ints, graph_attr = list(L1_pen = .005, L2_pen = .005,
