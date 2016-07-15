@@ -84,7 +84,8 @@ calculate_signal <- function(g, v){
   weight_vector <- matrix(E(g)[to(v)]$weight, ncol=1)
   linear_combination <- iparents(g, v) %>%
     ensure_that(length(.) > 0) %>%
-    {do.call("cbind", V(g)[.]$output.signal)} %>%
+    {do.call("cbind", V(g)[.]$output.signal)} %>% 
+    as.matrix %>%
     `%*%`(weight_vector) %>% 
     as.numeric %>%
     ensure_that(checkVector(.))

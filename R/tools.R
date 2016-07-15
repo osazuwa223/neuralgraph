@@ -39,6 +39,7 @@ vertexMSEs <- function(g){
 }
 
 #' Rescale the column of a data frame to between 0 and 1
+#' @export
 rescale_df <- function(df){
   observed.list <- lapply(df, function(col){
     x.max <- max(col)
@@ -120,9 +121,12 @@ long_test <- function(option){
 #' Fixed nodes are displayed as orange.  Of the two kinds of random nodes, 
 #' observed nodes are displayed in green, hidden nodes are displayed in blue.
 #' For random observed nodes, the width of node borders corresponds to error.
-#' 
+#' @param max_val A normalizing denominator used in calculating thickness of red error
+#' border.  Should be at least as large as the highest expected variation.  If there are
+#' vertices with MSE values greater than max_val a warning is thrown.  Defaults to 1/12
+#' the MSE expected for a random variable between 0, 1 with maximum entropy (i.e a uniform on 0, 1). 
 #' @export
-sg_viz <- function(g, main = NULL, sub = NULL, show_biases = FALSE){
+sg_viz <- function(g, max_val = 1, main = NULL, sub = NULL, show_biases = FALSE){
   if(!show_biases)  g <- igraph::induced.subgraph(g, V(g)[!is.bias])
   fill <- structure(rep("white", vcount(g)), names = V(g)$name)
   fill[V(g)$is.observed] <- "light green"
@@ -134,7 +138,8 @@ sg_viz <- function(g, main = NULL, sub = NULL, show_biases = FALSE){
   col[observed_and_random] <- "dark red"
   lwd <- structure(rep(1, vcount(g)), names = V(g)$name)
   mses <- vertexMSEs(g) 
-  lwd_vals <- 8 * (mses / max(mses))^3 + 1
+  if(max_val < max(mses)) warning("max_val is less than max MSE")
+  lwd_vals <- 8 * (mses / max_val)^3 + 1
   lwd[observed_and_random] <- lwd_vals
   node_list <- list(fill = fill, col = col, lwd = lwd) 
   g_out <- g %>% name_vertices %>% # Give vertices names if they do not have nay 

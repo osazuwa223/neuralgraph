@@ -4,13 +4,18 @@ Title: Signal Processing with Graphs
 Version: 1.0
 Date: 2015-04-23
 Author: Robert Osazuwa Ness
-Description: Signalgraph fits graphical models for signal processing, using well-known graphical tools in R.
+Description: Signalgraph fits graphical models for signal processing, using
+    well-known graphical tools in R.
 License: GPL-2
-Depends: R (>= 2.14),
-         lucy,
-         magrittr,
-         ensurer
-Suggests: testthat,
-          dplyr,
-    knitr
+Depends:
+    R (>= 2.14),
+    lucy,
+    magrittr,
+    ensurer
+Suggests:
+    testthat,
+    dplyr,
+    knitr,
+    rmarkdown
 VignetteBuilder: knitr
+RoxygenNote: 5.0.1

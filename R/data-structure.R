@@ -326,6 +326,7 @@ initializeEdges <- function(g){
 initializeGraph <- function(g, data, fixed = NULL, graph_attr = NULL){
   if(!is.dag(g)) stop("graph must have a directed acyclic graph structure")
   if(!is.simple(g)) stop("graph structure must be 'simple'; no multi-edges.")
+  if("tbl_df" %in% class(data)) data <- as.data.frame(data)
   g %>%
     checkArgs(data, fixed) %>% # Check the arguments
     initializeGraphAttributes(graph_attr, nrow(data)) %>% # Add the graph attributes

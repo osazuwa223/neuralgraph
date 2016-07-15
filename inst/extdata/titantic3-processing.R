@@ -18,8 +18,9 @@ fix_missing <- function(item){
   item[item == ""] <- NA
   item
 }
-titanic3 <- read.csv("data-raw/titanic3.csv", stringsAsFactors=F) %>%
-  lapply(fix_missing) %>% as.data.frame %>% #Remove the ""
+titanic3 <- read.csv("inst/extdata/titanic3.csv", stringsAsFactors=F) %>%
+  lapply(fix_missing) %>% 
+  as.data.frame %>% #Remove the ""
   mutate(boat = factor(boat, levels = parsed_levels$boat), # Convert to factors
          cabin = factor(cabin, levels = parsed_levels$cabin),
          embarked = factor(embarked),

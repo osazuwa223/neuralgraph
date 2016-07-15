@@ -10,12 +10,13 @@
 #' by having high degree vertices 'donate' edges to degreeless vertices.
 #' @param g an igraph object.  
 #' @param p number of desired vertices in the output graph.
+#' @param Starter graph as input for preferencial attachment.  Should have reversed edges. See start.graph argument in ba.game/barabasi.game/sample_pa functions in igraph.
 #' @return A new graph simulated from a power law based on g.
 #' @export 
-power_signal_graph <- function(g, p){
+power_signal_graph <- function(g, p, start_graph = NULL){
   g_out <- g %>%
     reverse_edges %>%
-    power_sim_no_singleton(p) %>%
+    power_sim_no_singleton(p, start_graph = start_graph) %>%
     simplify %>% 
     reverse_edges
   V(g_out)$name <- V(g_out) %>% as.numeric %>% as.character
@@ -34,8 +35,9 @@ power_signal_graph <- function(g, p){
 #' of having 0 outgoing edges, the closer they will be. 
 #' @param g the input igraph object. 
 #' @param p the desired amount of vertices
+#' @param See start.graph algorithm in igraph's sample_pa/barabasi.game function. NULL or an igraph graph. If a graph, then the supplied graph is used as a starting graph for the preferential attachment algorithm.
 #' @return a simulated graph based on g.
-power_sim_no_singleton <- function(g, p){
+power_sim_no_singleton <- function(g, p, start_graph = NULL){
   gamma <- fit_barabasi_power(g)
   out_degree_dist <- igraph::degree.distribution(g, mode = "out")
   sim_graph <- igraph::barabasi.game(p, power = gamma, out.dist = out_degree_dist) 

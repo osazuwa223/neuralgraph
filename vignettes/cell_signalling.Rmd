@@ -1,0 +1,147 @@
+---
+title: "Modeling the T-cell Signaling Network"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r, message=FALSE}
+library(signalgraph)
+```
+
+## Cell Signaling is how cells sense and respond to their environment
+
+Cell signaling refers to how cells perceive and respond to events in their environment.  These environmental events, including detection of hormones, pathogens, and growth factors, provide an input signal.  Within the cell, the signal is passed along a series of *signaling events*, meaning physical interactions between proteins.  This culminates in a *signaling response*, such as activation of a gene.
+
+## Use signaling network structure learning to identify novel signaling events in data 
+
+The cascade of signaling events can be represented as a directed network called a *signaling network*, where nodes are proteins and edges reflect signaling events.  The disregulation of cell signaling, or the "rewiring" of the signaling network, has been implicated in many processes of disease, including cancer.  
+
+Thus the goal of learning network structure from data is to discover how the signaling network as it is known, has been rewired in the context of the samples/patients from which the data was collected.  The experimenter acquires this "known network" from public sources such as [KEGG](www.kegg.jp), where biomedical knowledge is assembled into a computationally workable network structure, or assembled via other means.  An example of a network in KEGG is the MAPK signaling pathway which turns on growth and proliferation:
+
+![MapK](http://i.imgur.com/4OHHokQ.png)
+
+After learning network structure, the experimenter encounters edges in the learned network that are not in the canonical network model of the signaling system -- in effect edges that are not reflected in what is known.
+
+![signaling event](http://i.imgur.com/gmRr6me.png)
+
+Such learned edges are hypotheses for novel signaling events.  The experimentalist validates these hypotheses in follow up experiments.  
+
+In summary, the workflow is as follows.
+
+1. Collect data
+2. Learn network structure
+3. Identify edges not in the reference network
+4. Validate the presence of such edges in follow up experiments.
+
+## The T-cell dataset is a benchmark dataset for learning signaling network structure from data
+
+The T-cell signaling dataset consists of simultaneous fluorescence flow cytometry measurements of 11 phosphorylated proteins and phospholypids derived from thousands of individual primary immune system cells, specifically T cells.  
+
+Before measurement, the cells were exposed to stimuli that introduced signal into the signaling network.  Each row of the dataset is a cell, each column a protein, and each value corresponds to the signaling activity of a given protein that was measured for a given cell.  The dataset was published in a 2005 study published in Nature, Sachs et al.
+
+In the publication the authors validated the learned network edges against the following validation network, comprised of signaling events well-described in the biomedical literature.  
+
+```{r validation}
+data(tcell_examples, package = "bninfo")
+bnlearn::graphviz.plot(tcell_examples$net, main = "T-cell Signaling Validation Network")
+```
+
+A My package [*bninfo*](https://github.com/robertness/bninfo) walks through an [R workflow](https://github.com/robertness/bninfo/blob/master/vignettes/performance.Rmd) for repeating the network inference.  The algorithm is as follows:
+
+1. Generate 500 random networks
+2. For the ith network
+  1. Resample the data with replacement
+  2. Score the ith network against the resampled data using a likelihood-based metric that incorporates the intervention data.
+  3. Using this as the starting network, conduct a Tabu search that compares candidate network structures.
+3. For each edge that appeared in the 500 searches, weight each edge by the proportion of times in 500 that it appeared in a search result.
+
+```{r, eval=FALSE}
+averaging_tabu <- causal_learning(tcells, interventions, "tabu", iss = 10, tabu = 50, resample = TRUE)
+```
+
+Example of edge weights:
+
+```{r}
+class(averaging_tabu)
+sample_n(averaging_tabu, 10) %>%
+  mutate(weight = strength * direction)
+```
+
+This is an object of the class "bn.strength" from the *bnlearn* package.  The product "strength" and "direction" columns is the proportion of times the directed edge appeared.  I manually calculate this product in the "weight" column.
+
+The *strength_plot* function visualizes the results of model averaging.  A "consensus network" is created from all edges with weight greater than a threshold.  Below edges in the averaged network are plotted against the reference network, green edges correspond to detected edges (true positives), blue edges to undetected edges (false negatives).  The thickness of the edge corresponds to the weight -- the thicker the edge, the more evidence for its presence in the data.
+
+```{r, echo=FALSE}
+averaging_tabu <- tcell_examples$averaging_tabu
+```
+
+```{r}
+strength_plot(averaging_tabu, tcell_examples$net, plot_reference = TRUE, threshold = .5)
+```
+
+By visualizing against the consensus network, we can see incorrectly detected edges (false positives) in red. 
+
+```{r}
+strength_plot(averaging_tabu, tcell_examples$net, plot_reference = FALSE, threshold = .5)
+```
+
+As is typical in machine learning, we want a balance between minimizing false positives and maximizing true positives.  In  *bninfo* we can visualize this tradeoff with and ROC curve, with help of the *ROCR* package.
+
+```{r}
+averaging_tabu %>% # Grab averaging results
+  getPerformance(tcell_examples$net) %$% # Get performance against reference network
+  prediction(prediction, label) %>% # Convert to ROCR 'prediction' object
+  performance("tpr", "fpr") %>% # Calculate true positive rate and false positive rate statistics
+  plot(main = "ROC curve on signaling event detection")
+```
+
+
+```{r valid}
+data(tcells, package = "signalgraph")
+sg_viz(tcells$validated_net, show_biases = FALSE)
+```
+
+
+
+
+
+(1) The general pathway is activated, (2) PKC is specifically activated, and (3) PKA is specifically activated.  
+
+The data have been discretized into 3 levels; 1 (low), 2 (medium), and 3 (high).  While this looses information on the range of the values for each protein, the discretization was conducted such that cross-protein relationships between the quantiles of protein values was preserved.
+
+There is no 'inactivated pathway' baseline, so I create a "general signal" dummy node that acts as a baseline and set its values to 0.  I model the specific activations by adding two binary (0, 1) nodes "PKC signal" and "PKA signal".  
+
+The following graph illustrates the graph structure considered as the validated network in the 2005 paper, against which inferred network structures are compared. I initialize into a *signalgraph* object with the published data.  Using *sg_viz* to view, the signal is introduced in the pink nodes, and the green nodes are proteins that are observed in the data.  All the nodes are green because this validation network was constructed to include all the proteins they measured.
+
+```{r valid2}
+data(tcells, package = "signalgraph")
+sg_viz(tcells$validated_net, show_biases = FALSE)
+```
+
+Often however, data is available on a smaller set of proteins than are included in the network.  For example, in the following figure, the blue nodes indicate nodes where data is missing.
+
+```{r}
+sg_viz(tcells$subset_example, show_biases = FALSE)
+```
+ 
+
+## Signalgraph can select proteins for network inference
+
+The ultimate goal of network inference is to predict novel edges.  
+
+Which nodes are the most essential to causal inference?  In the absence of any data, a good choice is those with the most out-degree, because they have the most causal influence.
+
+Plcg has 2 proteins it affects directly.  Proteins Raf, Erk, Mek, and PIP3 have 1.
+
+1.  Remove one of these proteins, and consequently the edge(s) to its child protein(s).
+2.  
+
+Using *signalgraph* can we predict proteins that would decrease modeling error?  
+Can we predict novel edges?
+
+
+
+

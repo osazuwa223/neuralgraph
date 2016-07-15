@@ -61,28 +61,44 @@ for(map in maps){
         # where phosphorylation is a type of activation.  The second term is more specific than
         # the first, so when it is provided, use it in lieu of the first type.
         if(length(subtype_info) > 1) {
-          return(subtype_info[[2]]@name)
-        } 
-        return(subtype_info$subtype@name)
+          if(length(intersect(c("activation", "inhibition"), 
+                              c(subtype_info[[1]]@name, subtype_info[[2]]@name))) == 0){
+            return(c(type = NA, 
+                   mechanism1 = subtype_info[[1]]@name,
+                   mechanism2 = subtype_info[[2]]@name))
+          } 
+          return(c(type = subtype_info[[1]]@name, 
+                   mechanism1 = subtype_info[[2]]@name,
+                   mechanism2 = NA))
+        }
+        if(subtype_info$subtype@name %in% c("dissociation","phosphorylation", "binding/association",
+                                            "compound", "dephosphorylation", "indirect effect",
+                                            "ubiquitination")){
+          return(c(type = NA, mechanism1 = subtype_info$subtype@name, mechanism2 = NA))
+        }
+        return(c(type = subtype_info$subtype@name,
+                 mechanism1 = NA, 
+                 mechanism2 = NA))  
       }
-      NA
+      return(c(type = NA, mechanism1 = NA, mechanism2 = NA))
     }) %>%
-    unlist %>%
-    {cbind(get.edgelist(g), type = .)} %>%
+    ldply %>%
+    {cbind(get.edgelist(g), .[c("type", "mechanism1", "mechanism2")])} %>%
     data.frame
   edge_master <- rbind(edge_master, edge_list)
   vertex_master <- rbind(vertex_master, vertex_list)
 }
 phospho_edges <- edge_master %>%
   as.data.frame %>%
-  {.$V1[.$V1 == "hsa:5601"] <-  "hsa:5599"; .} %>% # 5601 and 5999 are both JNK.  Use only one JNK
-  {.$V2[.$V2 == "hsa:5601"] <- "hsa:5599"; .} %>%
-  {.$V1[.$V1 %in% c("hsa:5578", "hsa:5579", "hsa:5582")] <- "hsa:5588"; .} %>%
-  {.$V2[.$V2 %in% c("hsa:5578", "hsa:5579", "hsa:5582")] <- "hsa:5588"; .} %>%
+  {.$X1[.$X1 == "hsa:5601"] <-  "hsa:5599"; .} %>% # 5601 and 5999 are both JNK.  Use only one JNK
+  {.$X2[.$X2 == "hsa:5601"] <- "hsa:5599"; .} %>%
+  {.$X1[.$X1 %in% c("hsa:5578", "hsa:5579", "hsa:5582")] <- "hsa:5588"; .} %>%
+  {.$X2[.$X2 %in% c("hsa:5578", "hsa:5579", "hsa:5582")] <- "hsa:5588"; .} %>%
   unique %>%
-  filter(type == "phosphorylation")
+  filter(type == "activation") %>%
+  filter(mechanism1 == "phosphorylation") %>%
+  select(X1, X2)
   
-  #filter(!(type %in% c("indirect effect", "dissociation", "compound", "dephosphorylation", "binding/association")))  
 vertex_master <- vertex_master %>%
   as.data.frame %>%
   {.$kegg[.$kegg == "hsa:5601"] <- "hsa:5599"; .} %>%
@@ -168,7 +184,7 @@ g_igraph %>% # Give vertices names if they do not have nay
 
 ```{r}
 V(g_igraph)["RRAS2"]$name <- "Ras"
-
+# g_igraph <- g_igraph + vertices(c("Ras", "MAP3K1", "MAP3K5"))
 g_igraph <- g_igraph + igraph::edges(
   c("Ras", "Raf",
     "PKC", "Ras", # This  is a phosphorylation, not sure how was missed
@@ -243,6 +259,7 @@ sub_net %>%
 
 ```{r}
 activity_blockers <- paste0("ihb_", c("Mek", "Akt", "PKC", "PI3K"))
+#activity_blockers <- paste0("ihb_", c("Mek", "PKC", "PI3K"))
 activity_blocker_edges <- lapply(V(sub_net)[c("Mek", "Akt", "PKC", "PI3K")], function(v){
   inhibition <- paste0("ihb_", V(sub_net)[v]$name)
   cbind(inhibition, V(sub_net)[ichildren(sub_net, v)]$name)
@@ -250,6 +267,15 @@ activity_blocker_edges <- lapply(V(sub_net)[c("Mek", "Akt", "PKC", "PI3K")], fun
   {do.call("rbind", .)} %>%
   t %>%
   as.character
+# activity_blocker_edges <- lapply(V(sub_net)[c("Mek", "PKC", "PI3K")], function(v){
+#   inhibition <- paste0("ihb_", V(sub_net)[v]$name)
+#   cbind(inhibition, V(sub_net)[ichildren(sub_net, v)]$name)
+#   }) %>% 
+#   {do.call("rbind", .)} %>%
+#   t %>%
+#   as.character
+
+
 sub_net <- sub_net + 
   vertices(activity_blockers) +
   igraph::edges(activity_blocker_edges)
